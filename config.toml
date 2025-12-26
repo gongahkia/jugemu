@@ -1,0 +1,36 @@
+# Minimal config for jugemu.
+# This is intentionally small and boring: paths + a few defaults.
+
+[paths]
+messages = "data/messages.txt"
+chroma_persist = "data/chroma"
+checkpoints = "data/checkpoints"
+
+[chroma]
+collection = "messages"
+
+[embeddings]
+model = "sentence-transformers/all-MiniLM-L6-v2"
+batch = 256
+
+[train]
+epochs = 5
+steps_per_epoch = 500
+batch_size = 64
+seq_len = 256
+seed = 1337
+
+d_model = 192
+n_heads = 3
+n_layers = 3
+dropout = 0.1
+lr = 3e-4
+
+device = "auto"
+
+[chat]
+k = 6
+max_new = 240
+temperature = 0.9
+top_k = 60
+device = "auto"

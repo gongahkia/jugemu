@@ -3,8 +3,9 @@ from __future__ import annotations
 from pathlib import Path
 from typing import List
 
-from .chroma_store import Retrieved, get_client, get_or_create_collection, query_text
+from .chroma_store import Retrieved
 from .embeddings import embed_query
+from .vector_store import ChromaVectorStore
 
 
 def retrieve_similar(
@@ -14,7 +15,6 @@ def retrieve_similar(
     k: int,
     embedding_model: str,
 ) -> List[Retrieved]:
-    client = get_client(persist_dir)
-    collection = get_or_create_collection(client, collection_name)
+    store = ChromaVectorStore(persist_dir=Path(persist_dir), collection_name=collection_name)
     q = embed_query(query, embedding_model)
-    return query_text(collection, q, k=k)
+    return store.query(q, k=k)

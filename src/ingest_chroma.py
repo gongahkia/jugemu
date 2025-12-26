@@ -5,8 +5,8 @@ import hashlib
 from pathlib import Path
 from typing import List
 
-from .chroma_store import add_texts, get_client, get_or_create_collection
 from .embeddings import embed_texts
+from .vector_store import ChromaVectorStore
 
 
 def read_messages_lines(path: Path) -> List[str]:
@@ -35,8 +35,7 @@ def main() -> None:
     if not texts:
         raise SystemExit("No messages found (expected one message per line)")
 
-    client = get_client(args.persist)
-    collection = get_or_create_collection(client, args.collection)
+    store = ChromaVectorStore(persist_dir=Path(args.persist), collection_name=args.collection)
 
     # Upsert-ish: only add messages whose IDs are not present.
     # Chroma doesn't have perfect upsert in all versions; this is a simple best-effort.
@@ -45,7 +44,7 @@ def main() -> None:
     # Determine existing ids (may be large; keep it simple for MVP).
     existing = set()
     try:
-        got = collection.get(include=[])
+        got = store._collection.get(include=[])
         existing = set(got.get("ids", []))
     except Exception:
         existing = set()
@@ -62,7 +61,7 @@ def main() -> None:
         chunk_texts = new_texts[start : start + args.batch]
         chunk_ids = new_ids[start : start + args.batch]
         chunk_emb = embed_texts(chunk_texts, args.embedding_model)
-        add_texts(collection, ids=chunk_ids, texts=chunk_texts, embeddings=chunk_emb)
+        store.add(ids=chunk_ids, texts=chunk_texts, embeddings=chunk_emb)
 
     print(f"Ingested {len(new_texts)} new messages into collection '{args.collection}'.")
 

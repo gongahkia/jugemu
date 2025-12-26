@@ -1,0 +1,40 @@
+Define product goal: local-first "tiny and stupid" message-style mimic + retrieval memory for practitioners, not a general chatbot
+Define non-goals explicitly: no factual QA, no internet browsing, no safety-critical advice, no large-model finetuning pipelines
+Add a "Data Handling" section specifying supported export formats (iMessage, WhatsApp, Telegram, Signal) and the canonical intermediate format (one message per line or JSONL)
+Implement parsers/converters for common exports into canonical format (with unit tests + golden fixtures)
+Add PII/privacy guardrails: default to local-only processing and document where embeddings/checkpoints are stored on disk
+Add a redaction option (phone numbers/emails/addresses) during ingestion and training
+Add dataset splitting (train/val) and report validation loss per epoch for the training cycle
+Add deterministic runs: seed everything, log config + git hash, and write a `run.json` alongside checkpoints
+Add checkpoint resume support (`--resume data/checkpoints/latest.pt`) with optimizer state restoration
+Add learning-rate schedule option (cosine / warmup) and gradient accumulation to support small GPUs/CPU
+Add sampling controls to CLI: `--temperature`, `--top-k`, `--max-new`, and a `--stop-seq` list
+Add a minimal evaluation harness: "style imitation" proxy metrics (char perplexity on heldout) and qualitative prompts set
+Add an overfitting warning when corpus is small (e.g., < 50k chars) and auto-reduce `--seq-len`
+Add a message normalization pipeline: newline normalization, repeated whitespace collapsing option, emoji handling toggle
+Add conversation-aware formatting option: include timestamps/speaker tags in the training text when available
+Add retrieval prompt templates: minimal, conversation-scaffold, and "few-shot from retrieved" variants
+Add retrieve-then-rerank option: initial vector top_k then rerank with a lightweight cross-encoder (optional dependency)
+Make retrieval chunking configurable: per-message vs sliding window of N messages for better context
+Add ingestion metadata in Chroma: source file, line number, timestamp (if known), speaker (if known)
+Add robust dedupe strategy: stable IDs + optional fuzzy dedupe for near-identical messages
+Add a `VectorStore` interface with two backends: Chroma (local) and Cassandra/Astra (remote)
+Implement Cassandra/Astra backend using DataStax clients, including schema/table creation and vector similarity queries
+Add backend selection flag: `--vector-backend chroma|cassandra` and shared config loading
+Document Chroma behavior that duplicate IDs are ignored and make ingestion idempotent by design (aligns with Chroma docs)
+Add a config file (`config.toml`) to avoid long CLI flags and keep runs reproducible
+Add a single "train+ingest" pipeline command that runs: parse -> ingest -> train -> smoke-sample (one command, still tiny)
+Add `make`/`just` shortcuts for practitioners: `make ingest`, `make train`, `make chat`
+Add packaging: `pip install -e .` support and console scripts entrypoints for `jugemu-ingest`, `jugemu-train`, `jugemu-chat`
+Add CI smoke test (no GPU): run short train on tiny fixture + ingest/query against a temp Chroma persist dir
+Add dependency locking guidance for practitioners (pip-tools/uv) and pin Python version constraints clearly
+Add telemetry note: ensure Chroma telemetry is disabled by default for local usage (explicit setting/env doc)
+Add a practitioner-focused README section: "What this is good for" (tone/style autocomplete, personal drafts) and "What it is not"
+Add a simple prompt-injection stance: retrieved messages are untrusted text; keep prompt template minimal and deterministic
+Add performance knobs: embedding batch size, max corpus size, optional smaller embedding model for speed
+Add a migration strategy for vector store schema changes (version metadata + rebuild command)
+Add a data export tool: dump random retrieved examples and their similarity scores for debugging
+Add a `--dry-run` mode for ingestion that shows counts, dedupe rate, and example messages without writing DB
+Add a `--browse` command that prints top-N most frequent characters/tokens to help pick model size/seq_len
+Add a practitioner workflow: "collect daily messages" -> "weekly retrain" -> "use chat as style drafting tool" with explicit steps
+Add a license/ethics note: only train on messages you own/have consent to use, and keep artifacts private by default
