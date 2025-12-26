@@ -23,7 +23,8 @@ def sample_text(
     max_new_tokens: int = 200,
     temperature: float = 0.9,
     top_k: int | None = 60,
-    stop_on: str | None = None,
+    stop_on: str | List[str] | None = None,
+    return_full: bool = True,
 ) -> str:
     prompt_ids = encode(prompt, stoi)
     if not prompt_ids:
@@ -33,10 +34,18 @@ def sample_text(
     idx = torch.tensor([prompt_ids], dtype=torch.long, device=device)
     out = model.generate(idx, max_new_tokens=max_new_tokens, temperature=temperature, top_k=top_k)
     text = decode(out[0].tolist(), itos)
+    # Stop only in the generated tail (after the prompt).
+    start = len(prompt_text)
     if stop_on:
-        # Stop only in the generated tail (after the prompt).
-        start = len(prompt_text)
-        i = text.find(stop_on, start)
-        if i != -1:
-            text = text[:i]
-    return text
+        stops = [stop_on] if isinstance(stop_on, str) else list(stop_on)
+        earliest: int | None = None
+        for s in stops:
+            i = text.find(s, start)
+            if i != -1 and (earliest is None or i < earliest):
+                earliest = i
+        if earliest is not None:
+            text = text[:earliest]
+
+    if return_full:
+        return text
+    return text[start:]

@@ -38,6 +38,15 @@ python -m src.cli train \
   --epochs 5 \
   --batch-size 64 \
   --seq-len 256
+
+Optional (usually more coherent chat-style replies):
+
+```bash
+python -m src.cli train \
+  --messages data/messages.txt \
+  --out data/checkpoints \
+  --training-mode pairs
+```
 ```
 
 ## 4) Chat (retrieve similar messages + generate)

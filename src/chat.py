@@ -26,6 +26,71 @@ def _read_next_nonempty_line(path: Path, after_line_no: int) -> str | None:
     return None
 
 
+def _strip_role_prefix(s: str) -> str:
+    t = s.strip()
+    lowered = t.lower()
+    for prefix in ("you:", "user:"):
+        if lowered.startswith(prefix):
+            return t[len(prefix) :].lstrip()
+    return t
+
+
+def _clean_answer(s: str) -> str:
+    # One-line, no role labels, no accidental next-turn start.
+    t = s.replace("\r\n", "\n").replace("\r", "\n").strip()
+    t = t.replace("\n", " ").strip()
+    t = _strip_role_prefix(t)
+
+    # If the model starts a new turn inline, truncate.
+    lowered = t.lower()
+    for marker in (" user:", " you:"):
+        i = lowered.find(marker)
+        if i != -1:
+            t = t[:i].rstrip()
+            break
+    return t
+
+
+def _choose_corpus_reply(
+    *,
+    retrieved: list[tuple[str, float, dict | None]],
+    messages_path: Path,
+    reply_strategy: str,
+    min_score: float,
+) -> str | None:
+    if not messages_path.exists():
+        return None
+
+    best: tuple[float, str] | None = None
+    for text, score, meta in retrieved:
+        if not meta:
+            continue
+        if reply_strategy == "hybrid" and score < min_score:
+            continue
+        line_no = meta.get("line")
+        if not isinstance(line_no, int):
+            try:
+                line_no = int(line_no)
+            except Exception:
+                continue
+        nxt = _read_next_nonempty_line(messages_path, after_line_no=line_no)
+        if not nxt:
+            continue
+
+        nxt_clean = _clean_answer(nxt)
+        if not nxt_clean:
+            continue
+
+        # Avoid degenerate echo.
+        if nxt_clean.strip() == _clean_answer(text).strip():
+            continue
+
+        if best is None or score > best[0]:
+            best = (score, nxt_clean)
+
+    return best[1] if best else None
+
+
 def build_prompt(
     *,
     user_text: str,
@@ -41,7 +106,9 @@ def build_prompt(
     """
     blocks: list[str] = []
     if messages_path is not None and messages_path.exists():
-        for text, _score, meta in retrieved:
+        # Keep few-shot small; too many examples hurts tiny models.
+        max_examples = 3
+        for text, _score, meta in retrieved[: max_examples * 2]:
             if not meta:
                 continue
             line_no = meta.get("line")
@@ -53,15 +120,20 @@ def build_prompt(
             nxt = _read_next_nonempty_line(messages_path, after_line_no=line_no)
             if not nxt:
                 continue
-            # No extra labels to avoid OOV prompt chars; just message \n response.
-            blocks.append(f"{text}\n{nxt}")
+            # Use the same format as pair-training mode.
+            u = _clean_answer(text)
+            a = _clean_answer(nxt)
+            if not u or not a:
+                continue
+            blocks.append(f"USER: {u}\nYOU: {a}")
+            if len(blocks) >= max_examples:
+                break
 
     # Keep prompt small and simple; examples first, then the user's message.
     if blocks:
         ctx = "\n\n".join(blocks)
-        return f"{ctx}\n\n{user_text}\n"
-    # Fallback: just user message, then model continues.
-    return f"{user_text}\n"
+        return f"{ctx}\n\nUSER: {user_text}\nYOU: "
+    return f"USER: {user_text}\nYOU: "
 
 
 def _render_retrieval_table(retrieved: list[tuple[str, float]], k: int) -> Table:
@@ -212,21 +284,12 @@ def run_chat(
             retrieved = [(h.text, h.score, h.metadata) for h in hits]
             corpus_reply: str | None = None
             if messages_path is not None and messages_path.exists():
-                for _text, score, meta in retrieved:
-                    if not meta:
-                        continue
-                    if reply_strategy == "hybrid" and score < min_score:
-                        continue
-                    line_no = meta.get("line")
-                    if not isinstance(line_no, int):
-                        try:
-                            line_no = int(line_no)
-                        except Exception:
-                            continue
-                    nxt = _read_next_nonempty_line(messages_path, after_line_no=line_no)
-                    if nxt:
-                        corpus_reply = nxt
-                        break
+                corpus_reply = _choose_corpus_reply(
+                    retrieved=retrieved,
+                    messages_path=messages_path,
+                    reply_strategy=reply_strategy,
+                    min_score=min_score,
+                )
 
             if reply_strategy == "corpus" or (reply_strategy == "hybrid" and corpus_reply is not None):
                 out = corpus_reply or ""
@@ -241,14 +304,14 @@ def run_chat(
                     max_new_tokens=max_new,
                     temperature=temperature,
                     top_k=top_k,
-                    stop_on="\n",
+                    stop_on=["\n", "\nUSER:", "\nYOU:"],
+                    return_full=False,
                 )
 
         if show_retrieval:
             console.print(_render_retrieval_table([(t, s) for (t, s, _) in retrieved], k=k))
 
-        # For generated text, out may include prompt; show only the last line.
-        answer = out.split("\n")[-1].strip()
+        answer = _clean_answer(out)
         console.print(Panel(answer, title="jugemu", border_style="green"))
 
 

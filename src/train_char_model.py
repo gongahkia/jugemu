@@ -13,6 +13,7 @@ from tqdm import tqdm
 from rich.console import Console
 
 from .text_dataset import build_vocab, load_messages_text, make_stream_ids, batchify_stream
+from .text_dataset import build_pairs_corpus, load_messages_lines
 from .tiny_char_transformer import TinyCharTransformer, TinyConfig
 
 
@@ -56,8 +57,13 @@ def train_char_model(
     device: str = "auto",
     log_every: int = 50,
     console: Console | None = None,
+    training_mode: str = "stream",
 ) -> Path:
-    raw = load_messages_text(messages_path)
+    if training_mode == "pairs":
+        lines = load_messages_lines(messages_path)
+        raw = build_pairs_corpus(lines)
+    else:
+        raw = load_messages_text(messages_path)
     vocab = build_vocab(raw)
     stream = make_stream_ids(raw, vocab)
 
@@ -152,6 +158,12 @@ def main() -> None:
     ap.add_argument("--seed", type=int, default=1337)
     ap.add_argument("--device", default="auto", choices=["auto", "cpu", "mps", "cuda"])
     ap.add_argument("--log-every", type=int, default=50)
+    ap.add_argument(
+        "--training-mode",
+        default="stream",
+        choices=["stream", "pairs"],
+        help="stream: train on raw text stream; pairs: train on USER/YOU pairs from consecutive lines",
+    )
     args = ap.parse_args()
 
     console = Console()
@@ -171,6 +183,7 @@ def main() -> None:
         device=args.device,
         log_every=args.log_every,
         console=console,
+        training_mode=args.training_mode,
     )
     console.print(f"Done. Latest checkpoint: {latest}")
 

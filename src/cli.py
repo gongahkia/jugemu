@@ -64,6 +64,11 @@ def train(
     seed: int = typer.Option(1337, "--seed"),
     device: str = typer.Option("auto", "--device", help="auto/cpu/mps/cuda"),
     log_every: int = typer.Option(50, "--log-every"),
+    training_mode: str = typer.Option(
+        "stream",
+        "--training-mode",
+        help="stream (raw text) or pairs (USER/YOU from consecutive lines)",
+    ),
 ):
     """Train the tiny character model and write checkpoints."""
     console = Console()
@@ -84,6 +89,7 @@ def train(
         device=device,
         log_every=log_every,
         console=console,
+        training_mode=training_mode,
     )
     console.print(f"Done. Latest checkpoint: {latest}")
 

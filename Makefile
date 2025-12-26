@@ -16,6 +16,7 @@ STEPS_PER_EPOCH ?= 500
 BATCH_SIZE ?= 64
 SEQ_LEN ?= 256
 DEVICE ?= auto
+TRAINING_MODE ?= stream
 
 MAX_NEW ?= 240
 TEMPERATURE ?= 0.9
@@ -65,7 +66,8 @@ train: install
 		--steps-per-epoch $(STEPS_PER_EPOCH) \
 		--batch-size $(BATCH_SIZE) \
 		--seq-len $(SEQ_LEN) \
-		--device $(DEVICE)
+		--device $(DEVICE) \
+		--training-mode $(TRAINING_MODE)
 
 CHECKPOINT ?= data/checkpoints/latest.pt
 chat: install

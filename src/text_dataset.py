@@ -31,6 +31,32 @@ def load_messages_text(path: str | Path) -> str:
     return raw
 
 
+def load_messages_lines(path: str | Path) -> List[str]:
+    raw = load_messages_text(path)
+    out: List[str] = []
+    for ln in raw.split("\n"):
+        msg = ln.strip()
+        if msg:
+            out.append(msg)
+    return out
+
+
+def build_pairs_corpus(lines: List[str]) -> str:
+    """Build a synthetic dialogue corpus from consecutive message lines.
+
+    We don't know true speaker turns; we simply treat line[i] as USER and
+    line[i+1] as YOU. This is still *entirely* derived from messages.txt.
+    """
+    if len(lines) < 2:
+        return "USER: \nYOU: \n"
+    blocks: List[str] = []
+    for i in range(len(lines) - 1):
+        u = lines[i]
+        a = lines[i + 1]
+        blocks.append(f"USER: {u}\nYOU: {a}\n\n")
+    return "".join(blocks)
+
+
 def build_vocab(text: str) -> CharVocab:
     chars = sorted(set(text))
     # Ensure at least something sensible.
