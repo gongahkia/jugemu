@@ -74,19 +74,46 @@ def main() -> None:
     )
     args = ap.parse_args()
 
-    console = Console()
     show_retrieval = args.show_retrieval and not args.no_show_retrieval
+    run_chat(
+        persist=args.persist,
+        collection=args.collection,
+        embedding_model=args.embedding_model,
+        k=args.k,
+        checkpoint=args.checkpoint,
+        device=args.device,
+        max_new=args.max_new,
+        temperature=args.temperature,
+        top_k=args.top_k,
+        show_retrieval=show_retrieval,
+    )
 
-    device = args.device
-    if device == "auto":
+
+def run_chat(
+    *,
+    persist: str,
+    collection: str = "messages",
+    embedding_model: str = "sentence-transformers/all-MiniLM-L6-v2",
+    k: int = 6,
+    checkpoint: str,
+    device: str = "auto",
+    max_new: int = 240,
+    temperature: float = 0.9,
+    top_k: int = 60,
+    show_retrieval: bool = False,
+) -> None:
+    console = Console()
+
+    resolved_device = device
+    if resolved_device == "auto":
         if torch.cuda.is_available():
-            device = "cuda"
+            resolved_device = "cuda"
         elif torch.backends.mps.is_available():
-            device = "mps"
+            resolved_device = "mps"
         else:
-            device = "cpu"
+            resolved_device = "cpu"
 
-    loaded = load_checkpoint(args.checkpoint, device=device)
+    loaded = load_checkpoint(checkpoint, device=resolved_device)
     stoi, itos = vocab_from_itos(loaded.vocab_itos)
 
     console.print(Panel("Type a message. Use /help for commands.", title="jugemu", border_style="cyan"))
@@ -111,32 +138,30 @@ def main() -> None:
             continue
 
         hits = retrieve_similar(
-            persist_dir=args.persist,
-            collection_name=args.collection,
+            persist_dir=persist,
+            collection_name=collection,
             query=user_text,
-            k=args.k,
-            embedding_model=args.embedding_model,
+            k=k,
+            embedding_model=embedding_model,
         )
 
         with console.status("Thinking…", spinner="dots"):
             retrieved = [(h.text, h.score) for h in hits]
-
             prompt = build_prompt(user_text, retrieved)
             out = sample_text(
                 model=loaded.model,
                 prompt=prompt,
                 stoi=stoi,
                 itos=itos,
-                device=device,
-                max_new_tokens=args.max_new,
-                temperature=args.temperature,
-                top_k=args.top_k,
+                device=resolved_device,
+                max_new_tokens=max_new,
+                temperature=temperature,
+                top_k=top_k,
             )
 
         if show_retrieval:
-            console.print(_render_retrieval_table(retrieved, k=args.k))
+            console.print(_render_retrieval_table(retrieved, k=k))
 
-        # Print only the tail after "YOU:" if possible.
         marker = "YOU:"
         if marker in out:
             answer = out.split(marker, 1)[-1].strip()

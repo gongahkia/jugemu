@@ -25,9 +25,9 @@ help:
 	@echo "Targets:"
 	@echo "  make venv      - create .venv using python3.12"
 	@echo "  make install   - install deps into .venv"
-	@echo "  make ingest    - embed+store messages into ChromaDB"
-	@echo "  make train     - train tiny char model and write checkpoints"
-	@echo "  make chat      - run retrieval+generate chat loop"
+	@echo "  make ingest    - embed+store messages into ChromaDB (via Rich CLI)"
+	@echo "  make train     - train tiny char model and write checkpoints (via Rich CLI)"
+	@echo "  make chat      - run retrieval+generate chat loop (via Rich CLI)"
 	@echo "  make clean     - remove local artifacts (.venv, data/chroma, checkpoints)"
 	@echo ""
 	@echo "Common overrides:"
@@ -43,14 +43,14 @@ install: venv
 	@$(PIP) install -r requirements.txt
 
 ingest: install
-	@PYTHONPATH=$(PWD) $(PY) -m src.ingest_chroma \
+	@PYTHONPATH=$(PWD) $(PY) -m src.cli ingest \
 		--messages $(MESSAGES) \
 		--persist $(PERSIST) \
 		--collection $(COLLECTION) \
 		--embedding-model $(EMBED_MODEL)
 
 train: install
-	@PYTHONPATH=$(PWD) $(PY) -m src.train_char_model \
+	@PYTHONPATH=$(PWD) $(PY) -m src.cli train \
 		--messages $(MESSAGES) \
 		--out data/checkpoints \
 		--epochs $(EPOCHS) \
@@ -61,7 +61,7 @@ train: install
 
 CHECKPOINT ?= data/checkpoints/latest.pt
 chat: install
-	@PYTHONPATH=$(PWD) $(PY) -m src.chat \
+	@PYTHONPATH=$(PWD) $(PY) -m src.cli chat \
 		--persist $(PERSIST) \
 		--collection $(COLLECTION) \
 		--embedding-model $(EMBED_MODEL) \

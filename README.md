@@ -22,7 +22,7 @@ Example: `data/messages.txt`
 
 ```bash
 cd /path/to/jugemu
-python -m src.ingest_chroma \
+python -m src.cli ingest \
   --messages data/messages.txt \
   --persist data/chroma \
   --collection messages
@@ -32,7 +32,7 @@ python -m src.ingest_chroma \
 
 ```bash
 cd /path/to/jugemu
-python -m src.train_char_model \
+python -m src.cli train \
   --messages data/messages.txt \
   --out data/checkpoints \
   --epochs 5 \
@@ -44,10 +44,18 @@ python -m src.train_char_model \
 
 ```bash
 cd /path/to/jugemu
-python -m src.chat \
+python -m src.cli chat \
   --persist data/chroma \
   --collection messages \
   --checkpoint data/checkpoints/latest.pt
+```
+
+You can also use the Makefile wrappers:
+
+```bash
+make ingest
+make train
+make chat
 ```
 
 Notes:
