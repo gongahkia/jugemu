@@ -156,7 +156,7 @@ def run_chat(
     k: int = 6,
     messages: str | None = None,
     reply_strategy: str = "hybrid",
-    min_score: float = 0.55,
+    min_score: float = 0.35,
     checkpoint: str,
     device: str = "auto",
     max_new: int = 240,

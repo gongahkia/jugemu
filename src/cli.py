@@ -113,7 +113,7 @@ def chat(
         "--reply-strategy",
         help="hybrid/generate/corpus",
     ),
-    min_score: float = typer.Option(0.55, "--min-score", help="Minimum retrieval score for hybrid corpus replies"),
+    min_score: float = typer.Option(0.35, "--min-score", help="Minimum retrieval score for hybrid corpus replies"),
 ):
     """Interactive chat (retrieval + generation)."""
     run_chat(
