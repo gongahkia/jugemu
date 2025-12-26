@@ -1,6 +1,3 @@
-Define product goal: local-first "tiny and stupid" message-style mimic + retrieval memory for practitioners, not a general chatbot
-Define non-goals explicitly: no factual QA, no internet browsing, no safety-critical advice, no large-model finetuning pipelines
-Add a "Data Handling" section specifying supported export formats (iMessage, WhatsApp, Telegram, Signal) and the canonical intermediate format (one message per line or JSONL)
 Implement parsers/converters for common exports into canonical format (with unit tests + golden fixtures)
 Add PII/privacy guardrails: default to local-only processing and document where embeddings/checkpoints are stored on disk
 Add a redaction option (phone numbers/emails/addresses) during ingestion and training
@@ -26,15 +23,8 @@ Add a config file (`config.toml`) to avoid long CLI flags and keep runs reproduc
 Add a single "train+ingest" pipeline command that runs: parse -> ingest -> train -> smoke-sample (one command, still tiny)
 Add `make`/`just` shortcuts for practitioners: `make ingest`, `make train`, `make chat`
 Add packaging: `pip install -e .` support and console scripts entrypoints for `jugemu-ingest`, `jugemu-train`, `jugemu-chat`
-Add CI smoke test (no GPU): run short train on tiny fixture + ingest/query against a temp Chroma persist dir
-Add dependency locking guidance for practitioners (pip-tools/uv) and pin Python version constraints clearly
-Add telemetry note: ensure Chroma telemetry is disabled by default for local usage (explicit setting/env doc)
-Add a practitioner-focused README section: "What this is good for" (tone/style autocomplete, personal drafts) and "What it is not"
-Add a simple prompt-injection stance: retrieved messages are untrusted text; keep prompt template minimal and deterministic
 Add performance knobs: embedding batch size, max corpus size, optional smaller embedding model for speed
 Add a migration strategy for vector store schema changes (version metadata + rebuild command)
 Add a data export tool: dump random retrieved examples and their similarity scores for debugging
 Add a `--dry-run` mode for ingestion that shows counts, dedupe rate, and example messages without writing DB
 Add a `--browse` command that prints top-N most frequent characters/tokens to help pick model size/seq_len
-Add a practitioner workflow: "collect daily messages" -> "weekly retrain" -> "use chat as style drafting tool" with explicit steps
-Add a license/ethics note: only train on messages you own/have consent to use, and keep artifacts private by default

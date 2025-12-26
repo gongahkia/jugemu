@@ -10,8 +10,10 @@ from chromadb.config import Settings
 
 @dataclass(frozen=True)
 class Retrieved:
+    id: str
     text: str
     score: float
+    metadata: dict | None = None
 
 
 def get_client(persist_dir: str | Path) -> chromadb.PersistentClient:
@@ -42,13 +44,19 @@ def query_text(
     query_embedding: Sequence[float],
     k: int = 5,
 ) -> List[Retrieved]:
-    res = collection.query(query_embeddings=[list(query_embedding)], n_results=k, include=["documents", "distances"])
+    res = collection.query(
+        query_embeddings=[list(query_embedding)],
+        n_results=k,
+        include=["documents", "distances", "metadatas"],
+    )
+    ids = res.get("ids", [[]])[0]
     docs = res.get("documents", [[]])[0]
     dists = res.get("distances", [[]])[0]
+    metas = res.get("metadatas", [[]])[0]
     out: List[Retrieved] = []
-    for doc, dist in zip(docs, dists):
+    for _id, doc, dist, meta in zip(ids, docs, dists, metas):
         # With cosine space in Chroma, distance is usually (1 - cosine_similarity).
         # Convert to similarity-ish score for display.
         score = 1.0 - float(dist)
-        out.append(Retrieved(text=str(doc), score=score))
+        out.append(Retrieved(id=str(_id), text=str(doc), score=score, metadata=meta or None))
     return out

@@ -90,6 +90,11 @@ def train(
 
 @app.command()
 def chat(
+    messages: Path = typer.Option(
+        Path("data/messages.txt"),
+        "--messages",
+        help="messages.txt used to build msg->next-msg few-shot examples",
+    ),
     persist: Path = typer.Option(Path("data/chroma"), "--persist", help="ChromaDB persistence directory"),
     collection: str = typer.Option("messages", "--collection"),
     embedding_model: str = typer.Option(
@@ -103,9 +108,16 @@ def chat(
     temperature: float = typer.Option(0.9, "--temperature"),
     top_k: int = typer.Option(60, "--top-k"),
     show_retrieval: bool = typer.Option(False, "--show-retrieval", help="Print retrieved similar messages each turn"),
+    reply_strategy: str = typer.Option(
+        "hybrid",
+        "--reply-strategy",
+        help="hybrid/generate/corpus",
+    ),
+    min_score: float = typer.Option(0.55, "--min-score", help="Minimum retrieval score for hybrid corpus replies"),
 ):
     """Interactive chat (retrieval + generation)."""
     run_chat(
+        messages=str(messages),
         persist=str(persist),
         collection=collection,
         embedding_model=embedding_model,
@@ -116,6 +128,8 @@ def chat(
         temperature=temperature,
         top_k=top_k,
         show_retrieval=show_retrieval,
+        reply_strategy=reply_strategy,
+        min_score=min_score,
     )
 
 

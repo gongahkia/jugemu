@@ -1,8 +1,9 @@
 .PHONY: help venv install ingest train chat clean
 
 VENV := .venv
-PY := $(VENV)/bin/python
+VENV_PY := $(VENV)/bin/python
 PIP := $(VENV)/bin/pip
+DEPS_STAMP := $(VENV)/.deps_installed
 
 # Defaults (override like: make ingest MESSAGES=/path/to/messages.txt)
 MESSAGES ?= data/messages.txt
@@ -36,21 +37,28 @@ help:
 	@echo "  make chat CHECKPOINT=data/checkpoints/latest.pt"
 
 venv:
+	@# Kept for compatibility; use the file target below.
+	@true
+
+$(VENV_PY):
 	python3.12 -m venv $(VENV)
 
-install: venv
-	@$(PY) -m pip install -U pip
+$(DEPS_STAMP): requirements.txt | $(VENV_PY)
+	@$(VENV_PY) -m pip install -U pip
 	@$(PIP) install -r requirements.txt
+	@touch $(DEPS_STAMP)
+
+install: $(DEPS_STAMP)
 
 ingest: install
-	@PYTHONPATH=$(PWD) $(PY) -m src.cli ingest \
+	@PYTHONPATH=$(PWD) $(VENV_PY) -m src.cli ingest \
 		--messages $(MESSAGES) \
 		--persist $(PERSIST) \
 		--collection $(COLLECTION) \
 		--embedding-model $(EMBED_MODEL)
 
 train: install
-	@PYTHONPATH=$(PWD) $(PY) -m src.cli train \
+	@PYTHONPATH=$(PWD) $(VENV_PY) -m src.cli train \
 		--messages $(MESSAGES) \
 		--out data/checkpoints \
 		--epochs $(EPOCHS) \
@@ -61,7 +69,8 @@ train: install
 
 CHECKPOINT ?= data/checkpoints/latest.pt
 chat: install
-	@PYTHONPATH=$(PWD) $(PY) -m src.cli chat \
+	@PYTHONPATH=$(PWD) $(VENV_PY) -m src.cli chat \
+		--messages $(MESSAGES) \
 		--persist $(PERSIST) \
 		--collection $(COLLECTION) \
 		--embedding-model $(EMBED_MODEL) \
