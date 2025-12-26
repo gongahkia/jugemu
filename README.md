@@ -5,10 +5,12 @@ This is an intentionally **tiny and stupid** character-level language model trai
 ## Setup
 
 ```bash
-python -m venv .venv
+python3.12 -m venv .venv
 source .venv/bin/activate
 pip install -r requirements.txt
 ```
+
+If your default `python3` is 3.14+, use `python3.12` (ChromaDB native deps may not have 3.14 wheels yet).
 
 ## 1) Put your messages somewhere
 
@@ -19,6 +21,7 @@ Example: `data/messages.txt`
 ## 2) Ingest to ChromaDB (vector DB)
 
 ```bash
+cd /path/to/jugemu
 python -m src.ingest_chroma \
   --messages data/messages.txt \
   --persist data/chroma \
@@ -28,6 +31,7 @@ python -m src.ingest_chroma \
 ## 3) Train the tiny model
 
 ```bash
+cd /path/to/jugemu
 python -m src.train_char_model \
   --messages data/messages.txt \
   --out data/checkpoints \
@@ -39,6 +43,7 @@ python -m src.train_char_model \
 ## 4) Chat (retrieve similar messages + generate)
 
 ```bash
+cd /path/to/jugemu
 python -m src.chat \
   --persist data/chroma \
   --collection messages \
