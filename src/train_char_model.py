@@ -14,6 +14,7 @@ from rich.console import Console
 
 from .text_dataset import build_vocab, load_messages_text, make_stream_ids, batchify_stream
 from .text_dataset import build_pairs_corpus, load_messages_lines
+from .redact import redact_text
 from .tiny_char_transformer import TinyCharTransformer, TinyConfig
 
 
@@ -58,12 +59,18 @@ def train_char_model(
     log_every: int = 50,
     console: Console | None = None,
     training_mode: str = "stream",
+    redact: bool = False,
+    redact_types: list[str] | None = None,
 ) -> Path:
     if training_mode == "pairs":
         lines = load_messages_lines(messages_path)
+        if redact:
+            lines = [redact_text(ln, types=redact_types) for ln in lines]
         raw = build_pairs_corpus(lines)
     else:
         raw = load_messages_text(messages_path)
+        if redact:
+            raw = "\n".join(redact_text(ln, types=redact_types) for ln in raw.split("\n"))
     vocab = build_vocab(raw)
     stream = make_stream_ids(raw, vocab)
 
@@ -96,6 +103,10 @@ def train_char_model(
         "num_chars": int(stream.shape[0]),
         "vocab_size": vocab.size,
         "cfg": asdict(cfg),
+        "training_mode": training_mode,
+        "seed": int(seed),
+        "redact": bool(redact),
+        "redact_types": list(redact_types or []),
     }
     out_dir.mkdir(parents=True, exist_ok=True)
     (out_dir / "meta.json").write_text(json.dumps(meta, indent=2), encoding="utf-8")
@@ -164,6 +175,13 @@ def main() -> None:
         choices=["stream", "pairs"],
         help="stream: train on raw text stream; pairs: train on USER/YOU pairs from consecutive lines",
     )
+    ap.add_argument("--redact", action="store_true", help="Redact emails/phones/addresses before training")
+    ap.add_argument(
+        "--redact-type",
+        action="append",
+        default=[],
+        help="Redaction type (repeatable): email|phone|address. Default: all.",
+    )
     args = ap.parse_args()
 
     console = Console()
@@ -184,6 +202,8 @@ def main() -> None:
         log_every=args.log_every,
         console=console,
         training_mode=args.training_mode,
+        redact=bool(args.redact),
+        redact_types=list(args.redact_type or []),
     )
     console.print(f"Done. Latest checkpoint: {latest}")
 

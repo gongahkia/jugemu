@@ -8,6 +8,7 @@ from typing import List, Tuple
 from rich.console import Console
 
 from .embeddings import embed_texts
+from .redact import redact_text
 from .vector_store import ChromaVectorStore
 
 
@@ -38,6 +39,8 @@ def ingest_messages(
     collection_name: str = "messages",
     embedding_model: str = "sentence-transformers/all-MiniLM-L6-v2",
     batch: int = 256,
+    redact: bool = False,
+    redact_types: List[str] | None = None,
     console: Console | None = None,
 ) -> int:
     items = read_messages_lines(messages_path)
@@ -55,7 +58,8 @@ def ingest_messages(
     except Exception:
         existing = set()
 
-    texts = [t for _, t in items]
+    texts_raw = [t for _, t in items]
+    texts = [redact_text(t, types=redact_types) for t in texts_raw] if redact else list(texts_raw)
     line_nos = [line_no for line_no, _ in items]
     new_pairs = [(i, t, ln) for i, t, ln in zip(ids, texts, line_nos) if i not in existing]
     if not new_pairs:
@@ -85,6 +89,13 @@ def main() -> None:
     ap.add_argument("--collection", default="messages")
     ap.add_argument("--embedding-model", default="sentence-transformers/all-MiniLM-L6-v2")
     ap.add_argument("--batch", type=int, default=256)
+    ap.add_argument("--redact", action="store_true", help="Redact emails/phones/addresses before embedding/storing")
+    ap.add_argument(
+        "--redact-type",
+        action="append",
+        default=[],
+        help="Redaction type (repeatable): email|phone|address. Default: all.",
+    )
     args = ap.parse_args()
 
     console = Console()
@@ -95,6 +106,8 @@ def main() -> None:
             collection_name=args.collection,
             embedding_model=args.embedding_model,
             batch=args.batch,
+            redact=bool(args.redact),
+            redact_types=list(args.redact_type or []),
             console=console,
         )
     except ValueError as e:

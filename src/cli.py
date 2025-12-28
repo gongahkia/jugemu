@@ -30,6 +30,16 @@ def ingest(
         help="SentenceTransformers model for embeddings",
     ),
     batch: int = typer.Option(256, "--batch", help="Embed+add batch size"),
+    redact: bool = typer.Option(
+        False,
+        "--redact",
+        help="Redact emails/phones/addresses before embedding/storing",
+    ),
+    redact_type: List[str] = typer.Option(
+        [],
+        "--redact-type",
+        help="Redaction type (repeatable): email|phone|address. Default: all.",
+    ),
 ):
     """Embed messages and store them in ChromaDB."""
     console = Console()
@@ -41,6 +51,8 @@ def ingest(
             collection_name=collection,
             embedding_model=embedding_model,
             batch=batch,
+            redact=redact,
+            redact_types=list(redact_type),
             console=console,
         )
     if added == 0:
@@ -70,6 +82,16 @@ def train(
         "--training-mode",
         help="stream (raw text) or pairs (USER/YOU from consecutive lines)",
     ),
+    redact: bool = typer.Option(
+        False,
+        "--redact",
+        help="Redact emails/phones/addresses before training",
+    ),
+    redact_type: List[str] = typer.Option(
+        [],
+        "--redact-type",
+        help="Redaction type (repeatable): email|phone|address. Default: all.",
+    ),
 ):
     """Train the tiny character model and write checkpoints."""
     console = Console()
@@ -91,6 +113,8 @@ def train(
         log_every=log_every,
         console=console,
         training_mode=training_mode,
+        redact=redact,
+        redact_types=list(redact_type),
     )
     console.print(f"Done. Latest checkpoint: {latest}")
 

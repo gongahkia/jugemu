@@ -1,6 +1,5 @@
 Implement parsers/converters for common exports into canonical format (with unit tests + golden fixtures)
 Add PII/privacy guardrails: default to local-only processing and document where embeddings/checkpoints are stored on disk
-Add a redaction option (phone numbers/emails/addresses) during ingestion and training
 Add dataset splitting (train/val) and report validation loss per epoch for the training cycle
 Add deterministic runs: seed everything, log config + git hash, and write a `run.json` alongside checkpoints
 Add checkpoint resume support (`--resume data/checkpoints/latest.pt`) with optimizer state restoration
