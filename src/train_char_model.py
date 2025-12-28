@@ -2,8 +2,13 @@ from __future__ import annotations
 
 import argparse
 import json
+import os
+import platform
+import random
+import subprocess
 from dataclasses import asdict
 from pathlib import Path
+from typing import Any, Dict
 
 import numpy as np
 import torch
@@ -16,6 +21,46 @@ from .text_dataset import build_vocab, load_messages_text, make_stream_ids, batc
 from .text_dataset import build_pairs_corpus, load_messages_lines
 from .redact import redact_text
 from .tiny_char_transformer import TinyCharTransformer, TinyConfig
+
+
+def _try_git_hash() -> str | None:
+    try:
+        p = subprocess.run(
+            ["git", "rev-parse", "HEAD"],
+            check=True,
+            stdout=subprocess.PIPE,
+            stderr=subprocess.DEVNULL,
+            text=True,
+        )
+        h = p.stdout.strip()
+        return h or None
+    except Exception:
+        return None
+
+
+def _seed_everything(seed: int) -> None:
+    os.environ.setdefault("PYTHONHASHSEED", str(seed))
+    random.seed(seed)
+    np.random.seed(seed)
+    torch.manual_seed(seed)
+    if torch.cuda.is_available():
+        torch.cuda.manual_seed_all(seed)
+
+    # Best-effort determinism hints.
+    try:
+        torch.use_deterministic_algorithms(True)
+    except Exception:
+        pass
+    try:
+        torch.backends.cudnn.deterministic = True  # type: ignore[attr-defined]
+        torch.backends.cudnn.benchmark = False  # type: ignore[attr-defined]
+    except Exception:
+        pass
+
+
+def _write_run_json(out_dir: Path, run: Dict[str, Any]) -> None:
+    out_dir.mkdir(parents=True, exist_ok=True)
+    (out_dir / "run.json").write_text(json.dumps(run, indent=2), encoding="utf-8")
 
 
 def save_checkpoint(
@@ -92,7 +137,7 @@ def train_char_model(
         dropout=dropout,
     )
 
-    torch.manual_seed(seed)
+    _seed_everything(seed)
     np_rng = np.random.default_rng(seed)
 
     model = TinyCharTransformer(cfg).to(resolved_device)
@@ -110,6 +155,35 @@ def train_char_model(
     }
     out_dir.mkdir(parents=True, exist_ok=True)
     (out_dir / "meta.json").write_text(json.dumps(meta, indent=2), encoding="utf-8")
+
+    run: Dict[str, Any] = {
+        "git": {"hash": _try_git_hash()},
+        "env": {
+            "python": platform.python_version(),
+            "platform": platform.platform(),
+            "torch": getattr(torch, "__version__", None),
+            "numpy": getattr(np, "__version__", None),
+        },
+        "config": {
+            "messages": str(messages_path),
+            "out_dir": str(out_dir),
+            "epochs": int(epochs),
+            "batch_size": int(batch_size),
+            "seq_len": int(seq_len),
+            "d_model": int(d_model),
+            "n_heads": int(n_heads),
+            "n_layers": int(n_layers),
+            "dropout": float(dropout),
+            "lr": float(lr),
+            "steps_per_epoch": int(steps_per_epoch),
+            "seed": int(seed),
+            "device": str(device),
+            "training_mode": str(training_mode),
+            "redact": bool(redact),
+            "redact_types": list(redact_types or []),
+        },
+    }
+    _write_run_json(out_dir, run)
 
     global_step = 0
     model.train()

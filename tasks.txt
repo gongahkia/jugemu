@@ -1,7 +1,6 @@
 Implement parsers/converters for common exports into canonical format (with unit tests + golden fixtures)
 Add PII/privacy guardrails: default to local-only processing and document where embeddings/checkpoints are stored on disk
 Add dataset splitting (train/val) and report validation loss per epoch for the training cycle
-Add deterministic runs: seed everything, log config + git hash, and write a `run.json` alongside checkpoints
 Add checkpoint resume support (`--resume data/checkpoints/latest.pt`) with optimizer state restoration
 Add learning-rate schedule option (cosine / warmup) and gradient accumulation to support small GPUs/CPU
 Add a minimal evaluation harness: "style imitation" proxy metrics (char perplexity on heldout) and qualitative prompts set
