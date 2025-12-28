@@ -191,6 +191,12 @@ def main() -> None:
     ap.add_argument("--temperature", type=float, default=0.9)
     ap.add_argument("--top-k", type=int, default=60)
     ap.add_argument(
+        "--stop-seq",
+        action="append",
+        default=[],
+        help="Stop sequence (repeatable). Generation stops when any stop sequence appears.",
+    )
+    ap.add_argument(
         "--show-retrieval",
         action="store_true",
         help="Print a table of retrieved similar messages each turn",
@@ -216,6 +222,7 @@ def main() -> None:
         max_new=args.max_new,
         temperature=args.temperature,
         top_k=args.top_k,
+        stop_seq=list(args.stop_seq or []),
         show_retrieval=show_retrieval,
     )
 
@@ -234,6 +241,7 @@ def run_chat(
     max_new: int = 240,
     temperature: float = 0.9,
     top_k: int = 60,
+    stop_seq: list[str] | None = None,
     show_retrieval: bool = False,
 ) -> None:
     console = Console()
@@ -295,6 +303,7 @@ def run_chat(
                 out = corpus_reply or ""
             else:
                 prompt = build_prompt(user_text=user_text, retrieved=retrieved, messages_path=messages_path)
+                user_stops = [s for s in (stop_seq or []) if isinstance(s, str) and s]
                 out = sample_text(
                     model=loaded.model,
                     prompt=prompt,
@@ -304,7 +313,7 @@ def run_chat(
                     max_new_tokens=max_new,
                     temperature=temperature,
                     top_k=top_k,
-                    stop_on=["\n", "\nUSER:", "\nYOU:"],
+                    stop_on=["\n", "\nUSER:", "\nYOU:"] + user_stops,
                     return_full=False,
                 )
 

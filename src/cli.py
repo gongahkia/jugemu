@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 from pathlib import Path
+from typing import List
 
 import typer
 from rich.console import Console
@@ -113,6 +114,11 @@ def chat(
     max_new: int = typer.Option(240, "--max-new"),
     temperature: float = typer.Option(0.9, "--temperature"),
     top_k: int = typer.Option(60, "--top-k"),
+    stop_seq: List[str] = typer.Option(
+        [],
+        "--stop-seq",
+        help="Stop sequence (repeatable). Generation stops when any stop sequence appears.",
+    ),
     show_retrieval: bool = typer.Option(False, "--show-retrieval", help="Print retrieved similar messages each turn"),
     reply_strategy: str = typer.Option(
         "hybrid",
@@ -133,6 +139,7 @@ def chat(
         max_new=max_new,
         temperature=temperature,
         top_k=top_k,
+        stop_seq=list(stop_seq),
         show_retrieval=show_retrieval,
         reply_strategy=reply_strategy,
         min_score=min_score,

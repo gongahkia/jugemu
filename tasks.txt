@@ -5,7 +5,6 @@ Add dataset splitting (train/val) and report validation loss per epoch for the t
 Add deterministic runs: seed everything, log config + git hash, and write a `run.json` alongside checkpoints
 Add checkpoint resume support (`--resume data/checkpoints/latest.pt`) with optimizer state restoration
 Add learning-rate schedule option (cosine / warmup) and gradient accumulation to support small GPUs/CPU
-Add sampling controls to CLI: `--temperature`, `--top-k`, `--max-new`, and a `--stop-seq` list
 Add a minimal evaluation harness: "style imitation" proxy metrics (char perplexity on heldout) and qualitative prompts set
 Add an overfitting warning when corpus is small (e.g., < 50k chars) and auto-reduce `--seq-len`
 Add a message normalization pipeline: newline normalization, repeated whitespace collapsing option, emoji handling toggle
