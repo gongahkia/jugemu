@@ -1,4 +1,3 @@
-Add config-backed defaults for `pipeline` (vector backend + smoke flags)
 Add `jugemu chat --json` to emit structured turn summaries (no Rich)
 Add `jugemu browse` config key validation (reject invalid mode)
 Add `jugemu export-retrieval` config key validation (reject invalid out_format)
