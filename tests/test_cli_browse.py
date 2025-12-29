@@ -64,3 +64,30 @@ def test_cli_browse_json_outputs_parseable_json(tmp_path: Path) -> None:
     assert payload["min_count"] == 2
     assert payload["tokens"] == [{"token": "a", "count": 2}]
     assert "Top tokens" not in res.output
+
+
+def test_cli_browse_uses_config_defaults(tmp_path: Path) -> None:
+    runner = CliRunner()
+
+    messages_path = tmp_path / "messages.txt"
+    messages_path.write_text("a\na\nb\n", encoding="utf-8")
+
+    cfg_path = tmp_path / "config.toml"
+    cfg_path.write_text(
+        """
+[paths]
+messages = "messages.txt"
+
+[browse]
+mode = "tokens"
+top = 10
+min_count = 2
+""".lstrip(),
+        encoding="utf-8",
+    )
+
+    res = runner.invoke(cli.app, ["--config", str(cfg_path), "browse", "--messages", str(messages_path)])
+    assert res.exit_code == 0
+    assert "Top tokens" in res.output
+    assert "Top characters" not in res.output
+    assert "\tb" not in res.output

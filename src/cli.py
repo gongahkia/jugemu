@@ -100,6 +100,22 @@ def browse(
         if isinstance(cfg_messages, str) and messages == default_messages:
             messages = Path(cfg_messages)
 
+        cfg_top = cfg.get("browse", "top")
+        if isinstance(cfg_top, int) and int(top) == 50:
+            top = int(cfg_top)
+
+        cfg_mode = cfg.get("browse", "mode")
+        if isinstance(cfg_mode, str) and str(mode) == "both":
+            mode = str(cfg_mode)
+
+        cfg_min_count = cfg.get("browse", "min_count")
+        if isinstance(cfg_min_count, int) and int(min_count) == 1:
+            min_count = int(cfg_min_count)
+
+        cfg_json = cfg.get("browse", "json")
+        if isinstance(cfg_json, bool) and bool(json_output) is False:
+            json_output = bool(cfg_json)
+
     raw = messages.read_text(encoding="utf-8", errors="replace")
     lines = [ln for ln in raw.replace("\r\n", "\n").replace("\r", "\n").split("\n") if ln]
 
