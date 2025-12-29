@@ -1,2 +1,14 @@
+Ensure all `--json` outputs are newline-terminated exactly once
+Fix `export-retrieval --json` to avoid double-newlines
+Add validation for `export-retrieval --out-format` (reject invalid)
+Add validation for `pipeline --vector-backend` (reject invalid)
+Add validation for `chat --vector-backend` (reject invalid)
+Add validation for `chat --reply-strategy` (reject invalid)
+Add validation for `chat --prompt-template` (reject invalid)
+Add `schema --json` pretty output to `--json-pretty` (indent=2)
+Add `browse --json-pretty` (indent=2)
+Add `export-retrieval --json-pretty` (indent=2)
+Document config keys in README (browse/export-retrieval/pipeline/chat)
+Add `--version` option
 
 
