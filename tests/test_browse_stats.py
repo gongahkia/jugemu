@@ -4,6 +4,7 @@ from collections import Counter
 
 from src.browse_stats import count_chars, count_tokens, top_items
 from src.browse_stats import browse_report
+from src.browse_stats import write_browse_report
 
 
 def test_count_chars_includes_spaces() -> None:
@@ -45,3 +46,11 @@ def test_browse_report_mode_chars_only() -> None:
     report = browse_report(["ab"], mode="chars", top=10, min_count=1)
     assert "chars" in report
     assert "tokens" not in report
+
+
+def test_write_browse_report_writes_json(tmp_path) -> None:
+    report = browse_report(["a a b"], mode="tokens", top=10, min_count=2)
+    out = write_browse_report(report, out=tmp_path / "report.json")
+    raw = out.read_text(encoding="utf-8")
+    assert raw.endswith("\n")
+    assert '"mode"' in raw

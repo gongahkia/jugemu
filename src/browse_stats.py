@@ -1,7 +1,9 @@
 from __future__ import annotations
 
+import json
 import re
 from collections import Counter
+from pathlib import Path
 from typing import Iterable
 
 
@@ -65,3 +67,10 @@ def browse_report(
         ]
 
     return out
+
+
+def write_browse_report(report: dict, *, out: Path) -> Path:
+    p = Path(out)
+    p.parent.mkdir(parents=True, exist_ok=True)
+    p.write_text(json.dumps(report, indent=2, sort_keys=True, ensure_ascii=False) + "\n", encoding="utf-8")
+    return p
