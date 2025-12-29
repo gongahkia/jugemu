@@ -507,6 +507,11 @@ def rebuild_store(
         "--cassandra-password",
         help="Cassandra/Astra password (optional)",
     ),
+    yes: bool = typer.Option(
+        False,
+        "--yes",
+        help="Skip confirmation prompt for destructive rebuild",
+    ),
 ):
     """Destructively reset the vector store and rebuild it from messages."""
     cfg: JugemuConfig | None = None
