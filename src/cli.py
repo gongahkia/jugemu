@@ -1068,6 +1068,12 @@ def export_retrieval(
         if isinstance(cfg_no_print, bool) and bool(no_print) is False:
             no_print = bool(cfg_no_print)
 
+    if out is not None:
+        out_format2 = str(out_format or "").strip().lower()
+        if out_format2 not in {"json", "jsonl"}:
+            raise typer.BadParameter("--out-format must be one of: json|jsonl")
+        out_format = out_format2
+
     store = make_vector_store(
         backend=vector_backend,
         persist_dir=persist,
