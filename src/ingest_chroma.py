@@ -20,6 +20,10 @@ _INLINE_META_RE = re.compile(
 )
 
 
+DEFAULT_EMBEDDING_MODEL = "sentence-transformers/all-MiniLM-L6-v2"
+FAST_EMBEDDING_MODEL = "sentence-transformers/paraphrase-MiniLM-L3-v2"
+
+
 def extract_inline_metadata(text: str) -> tuple[str, str | None, str | None]:
     """Extract [timestamp] Speaker: message prefix when present.
 
@@ -168,7 +172,8 @@ def ingest_messages(
     messages_path: Path,
     persist_dir: Path,
     collection_name: str = "messages",
-    embedding_model: str = "sentence-transformers/all-MiniLM-L6-v2",
+    embedding_model: str = DEFAULT_EMBEDDING_MODEL,
+    fast_embedding_model: bool = False,
     batch: int = 256,
     embed_batch_size: int | None = None,
     chunking: str = "message",
@@ -303,6 +308,10 @@ def ingest_messages(
 
         return "\n".join(cleaned_lines).strip(), meta
 
+    model_name = str(embedding_model)
+    if bool(fast_embedding_model) and model_name == DEFAULT_EMBEDDING_MODEL:
+        model_name = FAST_EMBEDDING_MODEL
+
     for start in range(0, len(new_texts), batch):
         chunk_texts = new_texts[start : start + batch]
         chunk_ids = new_ids[start : start + batch]
@@ -316,7 +325,7 @@ def ingest_messages(
             cleaned_texts.append(cleaned)
             extra_metas.append(extra)
 
-        chunk_emb = embed_texts(cleaned_texts, embedding_model, batch_size=embed_batch_size)
+        chunk_emb = embed_texts(cleaned_texts, model_name, batch_size=embed_batch_size)
         metadatas = []
         for (start_ln, end_ln), extra, txt in zip(zip(chunk_starts, chunk_ends), extra_metas, chunk_texts):
             md = {
@@ -343,7 +352,12 @@ def main() -> None:
     ap.add_argument("--messages", required=True, help="Text file: one message per line")
     ap.add_argument("--persist", required=True, help="ChromaDB persistence directory")
     ap.add_argument("--collection", default="messages")
-    ap.add_argument("--embedding-model", default="sentence-transformers/all-MiniLM-L6-v2")
+    ap.add_argument("--embedding-model", default=DEFAULT_EMBEDDING_MODEL)
+    ap.add_argument(
+        "--fast-embedding-model",
+        action="store_true",
+        help=f"Use a smaller embedding model for speed (currently: {FAST_EMBEDDING_MODEL}).",
+    )
     ap.add_argument(
         "--embed-batch-size",
         type=int,
@@ -411,6 +425,7 @@ def main() -> None:
             persist_dir=Path(args.persist),
             collection_name=args.collection,
             embedding_model=args.embedding_model,
+            fast_embedding_model=bool(args.fast_embedding_model),
             embed_batch_size=args.embed_batch_size,
             max_messages=args.max_messages,
             batch=args.batch,
