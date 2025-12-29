@@ -1,3 +1,2 @@
-Add config-backed defaults for `browse` and `export-retrieval`
 Add `pipeline --vector-backend` support (chroma/cassandra + cassandra flags)
 Add tests for new CLI flags to keep coverage green
