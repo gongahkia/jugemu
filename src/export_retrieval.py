@@ -15,6 +15,10 @@ from .vector_store import Retrieved, VectorStore
 Embedder = Callable[[Sequence[str], str, int | None], List[Sequence[float]]]
 
 
+def format_retrieval_samples_json(results: list[dict]) -> str:
+    return json.dumps(results, ensure_ascii=False) + "\n"
+
+
 def write_retrieval_samples(
     results: list[dict],
     *,
