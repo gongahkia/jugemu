@@ -8,6 +8,7 @@ import typer
 from rich.console import Console
 from rich.panel import Panel
 
+from . import __version__
 from .chat import run_chat
 from .eval_char_model import default_prompts, evaluate_char_model, run_qualitative_prompts
 from .export_retrieval import dump_random_retrieval_samples, format_retrieval_samples_json, write_retrieval_samples
@@ -55,7 +56,16 @@ def _global_options(
         "--config",
         help="Optional config.toml path (defaults to ./config.toml when present)",
     ),
+    version: bool = typer.Option(
+        False,
+        "--version",
+        help="Print version and exit",
+        is_eager=True,
+    ),
 ):
+    if bool(version):
+        typer.echo(f"jugemu {__version__}")
+        raise typer.Exit()
     cfg = load_optional_config(config)
     ctx.obj = {"config": cfg}
 
