@@ -153,6 +153,11 @@ def ingest(
         help="SentenceTransformers model for embeddings",
     ),
     batch: int = typer.Option(256, "--batch", help="Embed+add batch size"),
+    embed_batch_size: int | None = typer.Option(
+        None,
+        "--embed-batch-size",
+        help="SentenceTransformer encode() batch_size (optional; can reduce RAM/VRAM).",
+    ),
     chunking: str = typer.Option(
         "message",
         "--chunking",
@@ -282,6 +287,7 @@ def ingest(
             persist_dir=persist,
             collection_name=collection,
             embedding_model=embedding_model,
+            embed_batch_size=embed_batch_size,
             batch=batch,
             chunking=str(chunking),
             window_size=int(window_size),
