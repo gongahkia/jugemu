@@ -8,6 +8,7 @@ from rich.console import Console
 from rich.panel import Panel
 
 from .chat import run_chat
+from .eval_char_model import default_prompts, evaluate_char_model, run_qualitative_prompts
 from .ingest_chroma import ingest_messages
 from .parse_exports import parse_export, write_canonical_messages
 from .train_char_model import train_char_model
@@ -173,6 +174,66 @@ def train(
         resume=resume,
     )
     console.print(f"Done. Latest checkpoint: {latest}")
+
+
+@app.command()
+def eval(
+    messages: Path = typer.Option(..., "--messages", exists=True, dir_okay=False, help="Path to messages text file"),
+    checkpoint: Path = typer.Option(
+        Path("data/checkpoints/latest.pt"),
+        "--checkpoint",
+        exists=True,
+        dir_okay=False,
+        help="Path to model checkpoint .pt",
+    ),
+    device: str = typer.Option("auto", "--device", help="auto/cpu/mps/cuda"),
+    heldout_fraction: float = typer.Option(0.05, "--heldout-fraction", help="Tail fraction reserved for eval"),
+    steps: int = typer.Option(200, "--steps", help="Random batches to average for heldout loss"),
+    batch_size: int = typer.Option(64, "--batch-size"),
+    seq_len: int | None = typer.Option(None, "--seq-len", help="Override seq_len for eval batches"),
+    seed: int = typer.Option(1337, "--seed"),
+    prompt: List[str] = typer.Option(
+        [],
+        "--prompt",
+        help="Qualitative prompt (repeatable). If omitted, uses a small default set.",
+    ),
+    max_new: int = typer.Option(240, "--max-new"),
+    temperature: float = typer.Option(0.9, "--temperature"),
+    top_k: int = typer.Option(60, "--top-k"),
+):
+    """Evaluate checkpoint on heldout + print qualitative prompts."""
+    console = Console()
+    console.print(Panel("Evaluating model…", title="jugemu", border_style="cyan"))
+
+    res = evaluate_char_model(
+        messages_path=messages,
+        checkpoint=checkpoint,
+        heldout_fraction=float(heldout_fraction),
+        steps=int(steps),
+        batch_size=int(batch_size),
+        seq_len=seq_len,
+        seed=int(seed),
+        device=str(device),
+    )
+    console.print(
+        f"Heldout chars: {res.heldout_chars} | OOV chars: {res.oov_chars} | "
+        f"loss: {res.loss:.4f} | ppl: {res.perplexity:.2f}"
+    )
+
+    prompts = list(prompt) if prompt else default_prompts()
+    console.print(Panel("Qualitative prompts", border_style="cyan"))
+    outs = run_qualitative_prompts(
+        checkpoint=checkpoint,
+        prompts=prompts,
+        max_new=int(max_new),
+        temperature=float(temperature),
+        top_k=int(top_k),
+        seed=int(seed),
+        device=str(device),
+        console=console,
+    )
+    for p, o in zip(prompts, outs):
+        console.print(Panel(o, title=f"prompt: {p!r}", border_style="green"))
 
 
 @app.command()

@@ -1,4 +1,3 @@
-Add a minimal evaluation harness: "style imitation" proxy metrics (char perplexity on heldout) and qualitative prompts set
 Add a message normalization pipeline: newline normalization, repeated whitespace collapsing option, emoji handling toggle
 Add conversation-aware formatting option: include timestamps/speaker tags in the training text when available
 Add retrieval prompt templates: minimal, conversation-scaffold, and "few-shot from retrieved" variants
