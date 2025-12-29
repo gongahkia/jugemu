@@ -112,8 +112,13 @@ def browse(
             top = int(cfg_top)
 
         cfg_mode = cfg.get("browse", "mode")
-        if isinstance(cfg_mode, str) and str(mode) == "both":
-            mode = str(cfg_mode)
+        if str(mode) == "both" and cfg_mode is not None:
+            if not isinstance(cfg_mode, str):
+                raise typer.BadParameter("config browse.mode must be one of: chars|tokens|both")
+            cfg_mode2 = str(cfg_mode).strip().lower()
+            if cfg_mode2 not in {"chars", "tokens", "both"}:
+                raise typer.BadParameter("config browse.mode must be one of: chars|tokens|both")
+            mode = cfg_mode2
 
         cfg_min_count = cfg.get("browse", "min_count")
         if isinstance(cfg_min_count, int) and int(min_count) == 1:
