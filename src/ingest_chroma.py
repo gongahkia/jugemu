@@ -2,6 +2,7 @@ from __future__ import annotations
 
 import argparse
 import hashlib
+import re
 from pathlib import Path
 from typing import List, Tuple
 
@@ -11,6 +12,26 @@ from .embeddings import embed_texts
 from .normalize import normalize_message_line
 from .redact import redact_text
 from .vector_store import ChromaVectorStore
+
+
+_INLINE_META_RE = re.compile(
+    r"^\[(?P<ts>[^\]]+)\]\s+(?P<speaker>[^:]{1,80}):\s*(?P<msg>.*)$"
+)
+
+
+def extract_inline_metadata(text: str) -> tuple[str, str | None, str | None]:
+    """Extract [timestamp] Speaker: message prefix when present.
+
+    Returns (clean_text, speaker, timestamp).
+    """
+    t = text.strip()
+    m = _INLINE_META_RE.match(t)
+    if not m:
+        return t, None, None
+    ts = m.group("ts").strip() or None
+    speaker = m.group("speaker").strip() or None
+    msg = (m.group("msg") or "").strip()
+    return msg, speaker, ts
 
 
 def read_messages_lines(
@@ -128,15 +149,60 @@ def ingest_messages(
     new_starts = [p[2] for p in new_pairs]
     new_ends = [p[3] for p in new_pairs]
 
+    mode = str(chunking or "message").strip().lower()
+
+    def _clean_for_embedding(original: str) -> tuple[str, dict]:
+        # Remove inline metadata tags from the stored/embedded text where possible,
+        # and emit metadata fields.
+        lines = original.split("\n")
+        speakers: list[str] = []
+        timestamps: list[str] = []
+        cleaned_lines: list[str] = []
+        for ln in lines:
+            msg, speaker, ts = extract_inline_metadata(ln)
+            cleaned_lines.append(msg)
+            if speaker:
+                speakers.append(speaker)
+            if ts:
+                timestamps.append(ts)
+
+        meta: dict = {}
+        if speakers:
+            meta["speaker"] = speakers[0]
+        if timestamps:
+            meta["timestamp"] = timestamps[0]
+        if len(lines) > 1:
+            # Best-effort for window chunks.
+            first_msg, first_speaker, first_ts = extract_inline_metadata(lines[0])
+            last_msg, last_speaker, last_ts = extract_inline_metadata(lines[-1])
+            if first_speaker:
+                meta["start_speaker"] = first_speaker
+            if last_speaker:
+                meta["end_speaker"] = last_speaker
+            if first_ts:
+                meta["start_timestamp"] = first_ts
+            if last_ts:
+                meta["end_timestamp"] = last_ts
+
+        return "\n".join(cleaned_lines).strip(), meta
+
     for start in range(0, len(new_texts), batch):
         chunk_texts = new_texts[start : start + batch]
         chunk_ids = new_ids[start : start + batch]
         chunk_starts = new_starts[start : start + batch]
         chunk_ends = new_ends[start : start + batch]
-        chunk_emb = embed_texts(chunk_texts, embedding_model)
-        mode = str(chunking or "message").strip().lower()
-        metadatas = [
-            {
+
+        cleaned_texts: list[str] = []
+        extra_metas: list[dict] = []
+        for txt in chunk_texts:
+            cleaned, extra = _clean_for_embedding(txt)
+            cleaned_texts.append(cleaned)
+            extra_metas.append(extra)
+
+        chunk_emb = embed_texts(cleaned_texts, embedding_model)
+        metadatas = []
+        for (start_ln, end_ln), extra in zip(zip(chunk_starts, chunk_ends), extra_metas):
+            md = {
                 "line": int(end_ln),
                 "start_line": int(start_ln),
                 "end_line": int(end_ln),
@@ -144,9 +210,10 @@ def ingest_messages(
                 "window_size": int(window_size) if mode == "window" else 1,
                 "source": str(messages_path),
             }
-            for start_ln, end_ln in zip(chunk_starts, chunk_ends)
-        ]
-        store.add(ids=chunk_ids, texts=chunk_texts, embeddings=chunk_emb, metadatas=metadatas)
+            md.update(extra)
+            metadatas.append(md)
+
+        store.add(ids=chunk_ids, texts=cleaned_texts, embeddings=chunk_emb, metadatas=metadatas)
         if console is not None:
             console.log(f"Added {min(start + batch, len(new_texts))}/{len(new_texts)}")
 

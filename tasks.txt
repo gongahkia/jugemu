@@ -1,4 +1,3 @@
-Add ingestion metadata in Chroma: source file, line number, timestamp (if known), speaker (if known)
 Add robust dedupe strategy: stable IDs + optional fuzzy dedupe for near-identical messages
 Add a `VectorStore` interface with two backends: Chroma (local) and Cassandra/Astra (remote)
 Implement Cassandra/Astra backend using DataStax clients, including schema/table creation and vector similarity queries
