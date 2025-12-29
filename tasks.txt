@@ -1,4 +1,3 @@
-Add `make`/`just` shortcuts for practitioners: `make ingest`, `make train`, `make chat`
 Add packaging: `pip install -e .` support and console scripts entrypoints for `jugemu-ingest`, `jugemu-train`, `jugemu-chat`
 Add performance knobs: embedding batch size, max corpus size, optional smaller embedding model for speed
 Add a migration strategy for vector store schema changes (version metadata + rebuild command)
