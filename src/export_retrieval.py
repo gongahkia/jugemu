@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+import json
 import random
 from pathlib import Path
 from typing import Callable, List, Sequence
@@ -12,6 +13,32 @@ from .vector_store import Retrieved, VectorStore
 
 
 Embedder = Callable[[Sequence[str], str, int | None], List[Sequence[float]]]
+
+
+def write_retrieval_samples(
+    results: list[dict],
+    *,
+    out: Path,
+    fmt: str,
+) -> Path:
+    """Write retrieval samples to disk.
+
+    fmt: json|jsonl
+    """
+    out_path = Path(out)
+    out_path.parent.mkdir(parents=True, exist_ok=True)
+
+    f = str(fmt or "jsonl").strip().lower()
+    if f == "json":
+        out_path.write_text(json.dumps(results, ensure_ascii=False, indent=2) + "\n", encoding="utf-8")
+        return out_path
+    if f == "jsonl":
+        with out_path.open("w", encoding="utf-8") as fp:
+            for row in results:
+                fp.write(json.dumps(row, ensure_ascii=False) + "\n")
+        return out_path
+
+    raise ValueError("fmt must be one of: json|jsonl")
 
 
 def dump_random_retrieval_samples(
