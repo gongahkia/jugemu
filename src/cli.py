@@ -167,6 +167,41 @@ def pipeline(
     ),
     epochs: int = typer.Option(5, "--epochs", help="Training epochs"),
     device: str = typer.Option("auto", "--device", help="auto/cpu/mps/cuda"),
+    vector_backend: str = typer.Option(
+        "chroma",
+        "--vector-backend",
+        help="Vector backend: chroma|cassandra",
+    ),
+    cassandra_contact_point: List[str] = typer.Option(
+        [],
+        "--cassandra-contact-point",
+        help="Cassandra contact point (repeatable). Default: 127.0.0.1",
+    ),
+    cassandra_keyspace: str = typer.Option(
+        "jugemu",
+        "--cassandra-keyspace",
+        help="Cassandra keyspace (for --vector-backend cassandra)",
+    ),
+    cassandra_table: str = typer.Option(
+        "messages",
+        "--cassandra-table",
+        help="Cassandra table (for --vector-backend cassandra)",
+    ),
+    cassandra_secure_connect_bundle: Path | None = typer.Option(
+        None,
+        "--cassandra-secure-connect-bundle",
+        help="Astra secure connect bundle zip (optional)",
+    ),
+    cassandra_username: str | None = typer.Option(
+        None,
+        "--cassandra-username",
+        help="Cassandra/Astra username (optional)",
+    ),
+    cassandra_password: str | None = typer.Option(
+        None,
+        "--cassandra-password",
+        help="Cassandra/Astra password (optional)",
+    ),
 ):
     """One-shot pipeline: parse -> ingest -> train -> smoke-sample."""
     cfg: JugemuConfig | None = None
@@ -211,6 +246,13 @@ def pipeline(
             persist_dir=persist_dir,
             collection=str(collection),
             embedding_model=str(embedding_model),
+            vector_backend=str(vector_backend),
+            cassandra_contact_points=list(cassandra_contact_point) or None,
+            cassandra_keyspace=str(cassandra_keyspace),
+            cassandra_table=str(cassandra_table),
+            cassandra_secure_connect_bundle=cassandra_secure_connect_bundle,
+            cassandra_username=cassandra_username,
+            cassandra_password=cassandra_password,
             train_out=checkpoints,
             train_epochs=int(epochs),
             device=str(device),
