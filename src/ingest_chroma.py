@@ -459,6 +459,11 @@ def main() -> None:
         default=[],
         help="Redaction type (repeatable): email|phone|address. Default: all.",
     )
+    ap.add_argument(
+        "--dry-run",
+        action="store_true",
+        help="Show counts/dedupe/examples without embedding or writing to the DB.",
+    )
     args = ap.parse_args()
 
     console = Console()
@@ -481,12 +486,15 @@ def main() -> None:
             strip_emoji=bool(args.strip_emoji),
             redact=bool(args.redact),
             redact_types=list(args.redact_type or []),
+            dry_run=bool(args.dry_run),
             console=console,
         )
     except ValueError as e:
         raise SystemExit(str(e))
 
-    if added == 0:
+    if bool(args.dry_run):
+        console.print(f"Dry-run: would ingest {added} messages into collection '{args.collection}'.")
+    elif added == 0:
         console.print("Nothing new to ingest.")
     else:
         console.print(f"Ingested {added} new messages into collection '{args.collection}'.")
