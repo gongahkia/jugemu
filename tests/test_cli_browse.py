@@ -48,6 +48,19 @@ def test_cli_browse_min_count_filters(tmp_path: Path) -> None:
     assert "\tb" not in res.output
 
 
+def test_cli_browse_no_header_suppresses_labels(tmp_path: Path) -> None:
+    runner = CliRunner()
+
+    messages_path = tmp_path / "messages.txt"
+    messages_path.write_text("hello\nhello\n", encoding="utf-8")
+
+    res = runner.invoke(cli.app, ["browse", "--messages", str(messages_path), "--mode", "tokens", "--no-header"])
+    assert res.exit_code == 0
+    assert "Browsing corpus stats" not in res.output
+    assert "Top tokens" not in res.output
+    assert "hello" in res.output
+
+
 def test_cli_browse_json_outputs_parseable_json(tmp_path: Path) -> None:
     runner = CliRunner()
 
