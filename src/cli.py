@@ -14,6 +14,7 @@ from .ingest_chroma import ingest_messages
 from .parse_exports import parse_export, write_canonical_messages
 from .config import JugemuConfig, load_optional_config
 from .pipeline import run_pipeline
+from .browse_stats import count_chars, count_tokens
 from .store_factory import make_vector_store
 from .train_char_model import train_char_model
 from .vector_store_schema import reset_vector_store
@@ -61,6 +62,49 @@ def parse(
         lines = parse_export(inp, fmt, include_metadata=with_metadata)
         write_canonical_messages(lines, out)
     console.print(f"Wrote {len(lines)} messages to {out}")
+
+
+@app.command()
+def browse(
+    ctx: typer.Context,
+    messages: Path = typer.Option(
+        Path("data/messages.txt"),
+        "--messages",
+        dir_okay=False,
+        help="Path to messages text file",
+    ),
+    top: int = typer.Option(50, "--top", help="Top-N items to print"),
+):
+    """Print top-N most frequent characters and tokens."""
+    cfg: JugemuConfig | None = None
+    if isinstance(getattr(ctx, "obj", None), dict):
+        cfg = ctx.obj.get("config")
+
+    default_messages = Path("data/messages.txt")
+    if cfg is not None:
+        cfg_messages = cfg.get("paths", "messages")
+        if isinstance(cfg_messages, str) and messages == default_messages:
+            messages = Path(cfg_messages)
+
+    raw = messages.read_text(encoding="utf-8", errors="replace")
+    lines = [ln for ln in raw.replace("\r\n", "\n").replace("\r", "\n").split("\n") if ln]
+
+    console = Console()
+    console.print(Panel("Browsing corpus stats…", title="jugemu", border_style="cyan"))
+
+    ch = count_chars(lines)
+    tok = count_tokens(lines)
+    n = int(top)
+    if n < 0:
+        n = 0
+
+    console.print("Top characters:")
+    for c, cnt in ch.most_common(n):
+        console.print(f"{cnt}\t{repr(c)}")
+
+    console.print("\nTop tokens:")
+    for t, cnt in tok.most_common(n):
+        console.print(f"{cnt}\t{t}")
 
 
 @app.command()
