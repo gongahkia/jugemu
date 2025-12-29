@@ -113,6 +113,13 @@ def save_checkpoint(
     return path
 
 
+def _load_resume_checkpoint(path: Path, device: str) -> dict:
+    ckpt: Dict[str, Any] = torch.load(path, map_location=device)
+    if not isinstance(ckpt, dict) or "model" not in ckpt or "cfg" not in ckpt:
+        raise ValueError(f"Invalid checkpoint: {path}")
+    return ckpt
+
+
 def train_char_model(
     *,
     messages_path: Path,
@@ -135,6 +142,7 @@ def train_char_model(
     redact_types: list[str] | None = None,
     val_fraction: float = 0.05,
     val_steps: int = 50,
+    resume: Path | None = None,
 ) -> Path:
     if training_mode == "pairs":
         lines = load_messages_lines(messages_path)
@@ -240,6 +248,21 @@ def train_char_model(
     _write_run_json(out_dir, run)
 
     global_step = 0
+    if resume is not None:
+        ckpt = _load_resume_checkpoint(Path(resume), device=resolved_device)
+        ckpt_cfg = ckpt.get("cfg")
+        if ckpt_cfg != asdict(cfg):
+            raise ValueError(
+                "Resume checkpoint config does not match current config. "
+                "Use the same model hyperparameters (including seq_len / d_model / layers)."
+            )
+        model.load_state_dict(ckpt["model"])
+        opt_state = ckpt.get("optimizer")
+        if opt_state is not None:
+            optimizer.load_state_dict(opt_state)
+        global_step = int(ckpt.get("step", 0))
+        if console is not None:
+            console.log(f"Resumed from {resume} at step={global_step}")
     model.train()
 
     for epoch in range(1, epochs + 1):
@@ -312,6 +335,7 @@ def main() -> None:
     ap.add_argument("--dropout", type=float, default=0.1)
     ap.add_argument("--lr", type=float, default=3e-4)
     ap.add_argument("--steps-per-epoch", type=int, default=500)
+    ap.add_argument("--resume", default=None, help="Resume from a checkpoint (.pt)")
     ap.add_argument("--seed", type=int, default=1337)
     ap.add_argument("--device", default="auto", choices=["auto", "cpu", "mps", "cuda"])
     ap.add_argument("--log-every", type=int, default=50)
@@ -364,6 +388,7 @@ def main() -> None:
         redact_types=list(args.redact_type or []),
         val_fraction=float(args.val_fraction),
         val_steps=int(args.val_steps),
+        resume=Path(args.resume) if args.resume else None,
     )
     console.print(f"Done. Latest checkpoint: {latest}")
 

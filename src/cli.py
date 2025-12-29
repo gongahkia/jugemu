@@ -74,6 +74,11 @@ def train(
     dropout: float = typer.Option(0.1, "--dropout"),
     lr: float = typer.Option(3e-4, "--lr"),
     steps_per_epoch: int = typer.Option(500, "--steps-per-epoch"),
+    resume: Path | None = typer.Option(
+        None,
+        "--resume",
+        help="Resume from a checkpoint (.pt)",
+    ),
     seed: int = typer.Option(1337, "--seed"),
     device: str = typer.Option("auto", "--device", help="auto/cpu/mps/cuda"),
     log_every: int = typer.Option(50, "--log-every"),
@@ -127,6 +132,7 @@ def train(
         redact_types=list(redact_type),
         val_fraction=float(val_fraction),
         val_steps=int(val_steps),
+        resume=resume,
     )
     console.print(f"Done. Latest checkpoint: {latest}")
 
