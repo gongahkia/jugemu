@@ -66,6 +66,21 @@ def ingest(
         "--window-size",
         help="Sliding window size (only used when --chunking window).",
     ),
+    exact_dedupe: bool = typer.Option(
+        True,
+        "--exact-dedupe/--no-exact-dedupe",
+        help="Exact dedupe by content hash (idempotent across repeated ingests).",
+    ),
+    fuzzy_dedupe: bool = typer.Option(
+        False,
+        "--fuzzy-dedupe",
+        help="Fuzzy dedupe within the current ingest run (simhash).",
+    ),
+    fuzzy_max_hamming: int = typer.Option(
+        6,
+        "--fuzzy-max-hamming",
+        help="Fuzzy dedupe threshold (lower is stricter).",
+    ),
     collapse_whitespace: bool = typer.Option(
         False,
         "--collapse-whitespace",
@@ -99,6 +114,9 @@ def ingest(
             batch=batch,
             chunking=str(chunking),
             window_size=int(window_size),
+            exact_dedupe=bool(exact_dedupe),
+            fuzzy_dedupe=bool(fuzzy_dedupe),
+            fuzzy_max_hamming=int(fuzzy_max_hamming),
             collapse_whitespace=collapse_whitespace,
             strip_emoji=strip_emoji,
             redact=redact,

@@ -2,6 +2,7 @@ from __future__ import annotations
 
 import argparse
 import hashlib
+import math
 import re
 from pathlib import Path
 from typing import List, Tuple
@@ -68,6 +69,73 @@ def stable_window_id(start_line: int, end_line: int, text: str) -> str:
     return f"{h}:{start_line}-{end_line}"
 
 
+def content_hash(text: str) -> str:
+    return hashlib.sha1(text.encode("utf-8", errors="ignore")).hexdigest()
+
+
+def _simhash64(text: str) -> int:
+    # Simple simhash over lowercase word tokens.
+    toks = re.findall(r"\w+", text.lower())
+    if not toks:
+        return 0
+    weights = [0] * 64
+    for tok in toks:
+        h = int(hashlib.md5(tok.encode("utf-8", errors="ignore")).hexdigest(), 16)
+        for i in range(64):
+            bit = (h >> i) & 1
+            weights[i] += 1 if bit else -1
+    out = 0
+    for i, w in enumerate(weights):
+        if w >= 0:
+            out |= 1 << i
+    return out
+
+
+def _hamming64(a: int, b: int) -> int:
+    return int((a ^ b).bit_count())
+
+
+def fuzzy_dedupe_texts(
+    texts: List[str],
+    *,
+    max_hamming: int = 6,
+) -> List[bool]:
+    """Return keep-mask for texts using simhash bucketing (within-run only)."""
+    keep = [True] * len(texts)
+    buckets: dict[int, List[tuple[int, int]]] = {}
+
+    # 4 bands of 16 bits.
+    def bucket_keys(h: int) -> List[int]:
+        return [
+            (h >> 0) & 0xFFFF,
+            (h >> 16) & 0xFFFF,
+            (h >> 32) & 0xFFFF,
+            (h >> 48) & 0xFFFF,
+        ]
+
+    hashes: List[int] = [_simhash64(t) for t in texts]
+    for idx, h in enumerate(hashes):
+        if not texts[idx].strip():
+            keep[idx] = False
+            continue
+        dup = False
+        for key in bucket_keys(h):
+            for (j, hj) in buckets.get(key, []):
+                if _hamming64(h, hj) <= int(max_hamming):
+                    dup = True
+                    break
+            if dup:
+                break
+        if dup:
+            keep[idx] = False
+            continue
+
+        for key in bucket_keys(h):
+            buckets.setdefault(key, []).append((idx, h))
+
+    return keep
+
+
 def build_chunks(
     items: List[Tuple[int, str]],
     *,
@@ -104,6 +172,9 @@ def ingest_messages(
     batch: int = 256,
     chunking: str = "message",
     window_size: int = 4,
+    exact_dedupe: bool = True,
+    fuzzy_dedupe: bool = False,
+    fuzzy_max_hamming: int = 6,
     collapse_whitespace: bool = False,
     strip_emoji: bool = False,
     redact: bool = False,
@@ -124,6 +195,7 @@ def ingest_messages(
     if not chunks:
         raise ValueError("No chunks produced (try a smaller --window-size or use --chunking message)")
 
+    mode_norm = str(chunking).strip().lower()
     ids = [
         stable_id(end_ln, t) if str(chunking).strip().lower() in {"message", "per-message", "per_message", "line"}
         else stable_window_id(start_ln, end_ln, t)
@@ -137,10 +209,42 @@ def ingest_messages(
     except Exception:
         existing = set()
 
+    # Robust exact dedupe: also dedupe by content hash (not just IDs).
+    existing_content_hashes: set[str] = set()
+    if exact_dedupe:
+        for _id in existing:
+            try:
+                # IDs are sha1(text):<line> or sha1(text):<start-end>
+                existing_content_hashes.add(str(_id).split(":", 1)[0])
+            except Exception:
+                continue
+
     texts_raw = [t for (_s, _e, t) in chunks]
     texts = [redact_text(t, types=redact_types) for t in texts_raw] if redact else list(texts_raw)
     bounds = [(s, e) for (s, e, _t) in chunks]
-    new_pairs = [(i, t, s, e) for i, t, (s, e) in zip(ids, texts, bounds) if i not in existing]
+
+    # Apply exact dedupe (by content hash) before fuzzy dedupe.
+    content_hashes = [content_hash(t) for t in texts]
+    keep_mask = [True] * len(texts)
+    if exact_dedupe:
+        seen: set[str] = set()
+        for idx, ch in enumerate(content_hashes):
+            if ch in existing_content_hashes or ch in seen:
+                keep_mask[idx] = False
+            else:
+                seen.add(ch)
+
+    if fuzzy_dedupe:
+        # Only within this run (post exact-dedupe).
+        candidates = [t if keep_mask[i] else "" for i, t in enumerate(texts)]
+        fuzzy_keep = fuzzy_dedupe_texts(candidates, max_hamming=int(fuzzy_max_hamming))
+        keep_mask = [a and b for a, b in zip(keep_mask, fuzzy_keep)]
+
+    new_pairs = [
+        (i, t, s, e)
+        for (i, t, (s, e), ch, keep) in zip(ids, texts, bounds, content_hashes, keep_mask)
+        if keep and i not in existing
+    ]
     if not new_pairs:
         return 0
 
@@ -201,7 +305,7 @@ def ingest_messages(
 
         chunk_emb = embed_texts(cleaned_texts, embedding_model)
         metadatas = []
-        for (start_ln, end_ln), extra in zip(zip(chunk_starts, chunk_ends), extra_metas):
+        for (start_ln, end_ln), extra, txt in zip(zip(chunk_starts, chunk_ends), extra_metas, chunk_texts):
             md = {
                 "line": int(end_ln),
                 "start_line": int(start_ln),
@@ -209,6 +313,7 @@ def ingest_messages(
                 "chunking": mode,
                 "window_size": int(window_size) if mode == "window" else 1,
                 "source": str(messages_path),
+                "content_hash": content_hash(txt),
             }
             md.update(extra)
             metadatas.append(md)
@@ -240,6 +345,22 @@ def main() -> None:
         help="Sliding window size (only used when --chunking window).",
     )
     ap.add_argument(
+        "--no-exact-dedupe",
+        action="store_true",
+        help="Disable exact dedupe by content hash (defaults to enabled).",
+    )
+    ap.add_argument(
+        "--fuzzy-dedupe",
+        action="store_true",
+        help="Enable fuzzy dedupe within the current ingest run (simhash).",
+    )
+    ap.add_argument(
+        "--fuzzy-max-hamming",
+        type=int,
+        default=6,
+        help="Fuzzy dedupe threshold (lower is stricter).",
+    )
+    ap.add_argument(
         "--collapse-whitespace",
         action="store_true",
         help="Collapse repeated spaces/tabs in each message before embedding.",
@@ -268,6 +389,9 @@ def main() -> None:
             batch=args.batch,
             chunking=str(args.chunking),
             window_size=int(args.window_size),
+            exact_dedupe=not bool(args.no_exact_dedupe),
+            fuzzy_dedupe=bool(args.fuzzy_dedupe),
+            fuzzy_max_hamming=int(args.fuzzy_max_hamming),
             collapse_whitespace=bool(args.collapse_whitespace),
             strip_emoji=bool(args.strip_emoji),
             redact=bool(args.redact),
