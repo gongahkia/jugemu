@@ -1305,6 +1305,11 @@ def chat(
         raise typer.BadParameter("--reply-strategy must be one of: hybrid|generate|corpus")
     reply_strategy = rs
 
+    pt = str(prompt_template or "").strip().lower()
+    if pt not in {"few-shot", "scaffold", "minimal"}:
+        raise typer.BadParameter("--prompt-template must be one of: few-shot|scaffold|minimal")
+    prompt_template = pt
+
     store = make_vector_store(
         backend=vector_backend,
         persist_dir=persist,
