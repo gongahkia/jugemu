@@ -94,6 +94,7 @@ def browse(
     min_count: int = typer.Option(1, "--min-count", help="Only show items with count >= this"),
     json_output: bool = typer.Option(False, "--json", help="Print JSON report to stdout"),
     out: Path | None = typer.Option(None, "--out", help="Write JSON report to this path"),
+    no_header: bool = typer.Option(False, "--no-header", help="Suppress Rich panels and section labels"),
 ):
     """Print top-N most frequent characters and tokens."""
     cfg: JugemuConfig | None = None
@@ -141,20 +142,24 @@ def browse(
         return
 
     console = Console()
-    console.print(Panel("Browsing corpus stats…", title="jugemu", border_style="cyan"))
+    if not bool(no_header):
+        console.print(Panel("Browsing corpus stats…", title="jugemu", border_style="cyan"))
 
     if m in {"chars", "both"}:
         ch = count_chars(lines)
-        console.print("Top characters:")
+        if not bool(no_header):
+            console.print("Top characters:")
         for c, cnt in top_items(ch, top=n, min_count=int(min_count)):
             console.print(f"{cnt}\t{repr(c)}")
 
     if m == "both":
-        console.print("\n")
+        if not bool(no_header):
+            console.print("\n")
 
     if m in {"tokens", "both"}:
         tok = count_tokens(lines)
-        console.print("Top tokens:")
+        if not bool(no_header):
+            console.print("Top tokens:")
         for t, cnt in top_items(tok, top=n, min_count=int(min_count)):
             console.print(f"{cnt}\t{t}")
 
