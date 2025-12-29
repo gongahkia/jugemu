@@ -28,6 +28,18 @@ class JugemuConfig:
         return cur
 
 
+def default_config_path() -> Path:
+    return Path("config.toml")
+
+
+def load_optional_config(path: str | Path | None) -> JugemuConfig | None:
+    if path is None:
+        p = default_config_path()
+        return JugemuConfig.load(p) if p.exists() else None
+    p = Path(path)
+    return JugemuConfig.load(p) if p.exists() else None
+
+
 def _load_toml(path: Path) -> Dict[str, Any]:
     # Python 3.11+: tomllib is in stdlib.
     try:
