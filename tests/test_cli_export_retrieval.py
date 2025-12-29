@@ -24,3 +24,40 @@ def test_cli_export_retrieval_calls_dumper(monkeypatch):
     assert res.exit_code == 0
     assert captured.get("samples") == 3
     assert captured.get("k") == 2
+
+
+def test_cli_export_retrieval_uses_config_defaults(tmp_path, monkeypatch):
+    runner = CliRunner()
+
+    cfg_path = tmp_path / "config.toml"
+    cfg_path.write_text(
+        """
+[export_retrieval]
+samples = 3
+k = 2
+seed = 42
+embed_batch_size = 7
+out_format = "json"
+no_print = true
+""".lstrip(),
+        encoding="utf-8",
+    )
+
+    captured = {}
+
+    def _fake_make_vector_store(**kwargs):  # type: ignore[no-untyped-def]
+        return object()
+
+    def _fake_dump_random_retrieval_samples(**kwargs):  # type: ignore[no-untyped-def]
+        captured.update(kwargs)
+        return []
+
+    monkeypatch.setattr(cli, "make_vector_store", _fake_make_vector_store)
+    monkeypatch.setattr(cli, "dump_random_retrieval_samples", _fake_dump_random_retrieval_samples)
+
+    res = runner.invoke(cli.app, ["--config", str(cfg_path), "export-retrieval"])
+    assert res.exit_code == 0
+    assert captured.get("samples") == 3
+    assert captured.get("k") == 2
+    assert captured.get("seed") == 42
+    assert captured.get("embed_batch_size") == 7

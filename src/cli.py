@@ -953,6 +953,30 @@ def export_retrieval(
         if isinstance(cfg_embed, str) and embedding_model == "sentence-transformers/all-MiniLM-L6-v2":
             embedding_model = cfg_embed
 
+        cfg_samples = cfg.get("export_retrieval", "samples")
+        if isinstance(cfg_samples, int) and int(samples) == 10:
+            samples = int(cfg_samples)
+
+        cfg_k = cfg.get("export_retrieval", "k")
+        if isinstance(cfg_k, int) and int(k) == 6:
+            k = int(cfg_k)
+
+        cfg_seed = cfg.get("export_retrieval", "seed")
+        if isinstance(cfg_seed, int) and int(seed) == 1337:
+            seed = int(cfg_seed)
+
+        cfg_ebs = cfg.get("export_retrieval", "embed_batch_size")
+        if isinstance(cfg_ebs, int) and embed_batch_size is None:
+            embed_batch_size = int(cfg_ebs)
+
+        cfg_out_fmt = cfg.get("export_retrieval", "out_format")
+        if isinstance(cfg_out_fmt, str) and str(out_format) == "jsonl":
+            out_format = str(cfg_out_fmt)
+
+        cfg_no_print = cfg.get("export_retrieval", "no_print")
+        if isinstance(cfg_no_print, bool) and bool(no_print) is False:
+            no_print = bool(cfg_no_print)
+
     store = make_vector_store(
         backend=vector_backend,
         persist_dir=persist,
