@@ -231,7 +231,13 @@ def ingest(
 
 @app.command()
 def train(
-    messages: Path = typer.Option(..., "--messages", exists=True, dir_okay=False, help="Path to messages text file"),
+    ctx: typer.Context,
+    messages: Path = typer.Option(
+        Path("data/messages.txt"),
+        "--messages",
+        dir_okay=False,
+        help="Path to messages text file",
+    ),
     out: Path = typer.Option(Path("data/checkpoints"), "--out", help="Output dir for checkpoints"),
     epochs: int = typer.Option(5, "--epochs"),
     batch_size: int = typer.Option(64, "--batch-size"),
@@ -302,6 +308,64 @@ def train(
     ),
 ):
     """Train the tiny character model and write checkpoints."""
+    cfg: JugemuConfig | None = None
+    if isinstance(getattr(ctx, "obj", None), dict):
+        cfg = ctx.obj.get("config")
+
+    default_messages = Path("data/messages.txt")
+    if cfg is not None:
+        cfg_messages = cfg.get("paths", "messages")
+        if isinstance(cfg_messages, str) and messages == default_messages:
+            messages = Path(cfg_messages)
+
+        cfg_out = cfg.get("paths", "checkpoints")
+        if isinstance(cfg_out, str) and out == Path("data/checkpoints"):
+            out = Path(cfg_out)
+
+        cfg_epochs = cfg.get("train", "epochs")
+        if isinstance(cfg_epochs, int) and int(epochs) == 5:
+            epochs = int(cfg_epochs)
+
+        cfg_steps = cfg.get("train", "steps_per_epoch")
+        if isinstance(cfg_steps, int) and int(steps_per_epoch) == 500:
+            steps_per_epoch = int(cfg_steps)
+
+        cfg_bs = cfg.get("train", "batch_size")
+        if isinstance(cfg_bs, int) and int(batch_size) == 64:
+            batch_size = int(cfg_bs)
+
+        cfg_seq = cfg.get("train", "seq_len")
+        if isinstance(cfg_seq, int) and int(seq_len) == 256:
+            seq_len = int(cfg_seq)
+
+        cfg_seed = cfg.get("train", "seed")
+        if isinstance(cfg_seed, int) and int(seed) == 1337:
+            seed = int(cfg_seed)
+
+        cfg_dm = cfg.get("train", "d_model")
+        if isinstance(cfg_dm, int) and int(d_model) == 192:
+            d_model = int(cfg_dm)
+
+        cfg_h = cfg.get("train", "n_heads")
+        if isinstance(cfg_h, int) and int(n_heads) == 3:
+            n_heads = int(cfg_h)
+
+        cfg_l = cfg.get("train", "n_layers")
+        if isinstance(cfg_l, int) and int(n_layers) == 3:
+            n_layers = int(cfg_l)
+
+        cfg_do = cfg.get("train", "dropout")
+        if isinstance(cfg_do, (int, float)) and float(dropout) == 0.1:
+            dropout = float(cfg_do)
+
+        cfg_lr = cfg.get("train", "lr")
+        if isinstance(cfg_lr, (int, float)) and float(lr) == float(3e-4):
+            lr = float(cfg_lr)
+
+        cfg_device = cfg.get("train", "device")
+        if isinstance(cfg_device, str) and str(device) == "auto":
+            device = cfg_device
+
     console = Console()
     console.print(Panel("Training model…", title="jugemu", border_style="cyan"))
     latest = train_char_model(
