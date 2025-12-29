@@ -1,0 +1,10 @@
+Add `jugemu export-retrieval --out` to write results to a file (json/jsonl)
+Add `jugemu export-retrieval --query` (repeatable) to use explicit query strings
+Add `jugemu export-retrieval --no-print` to suppress console output (for scripting)
+Add `jugemu browse --mode chars|tokens|both` and `--min-count` filtering
+Add `jugemu browse --json` output mode
+Add `jugemu rebuild-store --yes` confirmation to prevent accidental data loss
+Add `jugemu schema` command to print current vector store schema version (and backend info)
+Add config-backed defaults for `browse` and `export-retrieval`
+Add `pipeline --vector-backend` support (chroma/cassandra + cassandra flags)
+Add tests for new CLI flags to keep coverage green
