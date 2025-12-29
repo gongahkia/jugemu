@@ -29,9 +29,14 @@ app = typer.Typer(
 
 
 @app.command()
-def schema() -> None:
+def schema(
+    json_output: bool = typer.Option(False, "--json", help="Print JSON to stdout"),
+) -> None:
     """Print the current vector store schema version and backend info."""
     info = schema_info()
+    if bool(json_output):
+        typer.echo(json.dumps(info, ensure_ascii=False))
+        return
     typer.echo(f"schema_version: {info['schema_version']}")
     typer.echo(f"vector_backends: {', '.join(info['vector_backends'])}")
     typer.echo(f"chroma.schema_file: {info['chroma']['schema_file']}")
