@@ -170,6 +170,7 @@ def ingest_messages(
     collection_name: str = "messages",
     embedding_model: str = "sentence-transformers/all-MiniLM-L6-v2",
     batch: int = 256,
+    embed_batch_size: int | None = None,
     chunking: str = "message",
     window_size: int = 4,
     exact_dedupe: bool = True,
@@ -308,7 +309,7 @@ def ingest_messages(
             cleaned_texts.append(cleaned)
             extra_metas.append(extra)
 
-        chunk_emb = embed_texts(cleaned_texts, embedding_model)
+        chunk_emb = embed_texts(cleaned_texts, embedding_model, batch_size=embed_batch_size)
         metadatas = []
         for (start_ln, end_ln), extra, txt in zip(zip(chunk_starts, chunk_ends), extra_metas, chunk_texts):
             md = {
@@ -336,6 +337,12 @@ def main() -> None:
     ap.add_argument("--persist", required=True, help="ChromaDB persistence directory")
     ap.add_argument("--collection", default="messages")
     ap.add_argument("--embedding-model", default="sentence-transformers/all-MiniLM-L6-v2")
+    ap.add_argument(
+        "--embed-batch-size",
+        type=int,
+        default=None,
+        help="SentenceTransformer encode() batch_size (optional; can reduce RAM/VRAM).",
+    )
     ap.add_argument("--batch", type=int, default=256)
     ap.add_argument(
         "--chunking",
@@ -391,6 +398,7 @@ def main() -> None:
             persist_dir=Path(args.persist),
             collection_name=args.collection,
             embedding_model=args.embedding_model,
+            embed_batch_size=args.embed_batch_size,
             batch=args.batch,
             chunking=str(args.chunking),
             window_size=int(args.window_size),
