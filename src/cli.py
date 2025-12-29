@@ -158,6 +158,11 @@ def ingest(
         "--embed-batch-size",
         help="SentenceTransformer encode() batch_size (optional; can reduce RAM/VRAM).",
     ),
+    max_messages: int | None = typer.Option(
+        None,
+        "--max-messages",
+        help="Only ingest the first N messages (for faster iteration).",
+    ),
     chunking: str = typer.Option(
         "message",
         "--chunking",
@@ -288,6 +293,7 @@ def ingest(
             collection_name=collection,
             embedding_model=embedding_model,
             embed_batch_size=embed_batch_size,
+            max_messages=max_messages,
             batch=batch,
             chunking=str(chunking),
             window_size=int(window_size),
