@@ -1,4 +1,3 @@
-Fix `export-retrieval --json` to avoid double-newlines
 Add validation for `export-retrieval --out-format` (reject invalid)
 Add validation for `pipeline --vector-backend` (reject invalid)
 Add validation for `chat --vector-backend` (reject invalid)
