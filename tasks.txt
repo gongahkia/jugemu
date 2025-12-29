@@ -1,1 +1,11 @@
+Add `jugemu schema --json` output mode
+Add `jugemu browse --out` to write JSON report to disk
+Add `jugemu browse --no-header` to suppress Rich panels/labels
+Add `jugemu export-retrieval --json` to print machine-readable JSON to stdout
+Add `jugemu export-retrieval --fail-on-empty` (exit non-zero when no results)
+Add `jugemu pipeline --smoke-prompt` and `--smoke-max-new` CLI flags
+Add config-backed defaults for `pipeline` (vector backend + smoke flags)
+Add `jugemu chat --json` to emit structured turn summaries (no Rich)
+Add `jugemu browse` config key validation (reject invalid mode)
+Add `jugemu export-retrieval` config key validation (reject invalid out_format)
 
