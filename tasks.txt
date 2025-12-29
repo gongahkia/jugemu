@@ -1,4 +1,3 @@
-Document config keys in README (browse/export-retrieval/pipeline/chat)
 Add `--version` option
 
 
