@@ -947,6 +947,11 @@ def export_retrieval(
         "--json",
         help="Print machine-readable JSON to stdout",
     ),
+    fail_on_empty: bool = typer.Option(
+        False,
+        "--fail-on-empty",
+        help="Exit non-zero when no results are produced",
+    ),
     no_print: bool = typer.Option(
         False,
         "--no-print",
@@ -1061,6 +1066,9 @@ def export_retrieval(
             embed_batch_size=embed_batch_size,
             console=None,
         )
+        if bool(fail_on_empty) and len(results) == 0:
+            typer.echo("No results.", err=True)
+            raise typer.Exit(code=1)
         if out is not None:
             write_retrieval_samples(results, out=Path(out), fmt=str(out_format))
         typer.echo(format_retrieval_samples_json(results))
@@ -1078,6 +1086,8 @@ def export_retrieval(
             embed_batch_size=embed_batch_size,
             console=None,
         )
+        if bool(fail_on_empty) and len(results) == 0:
+            raise typer.Exit(code=1)
         if out is not None:
             write_retrieval_samples(results, out=Path(out), fmt=str(out_format))
         return
@@ -1096,6 +1106,9 @@ def export_retrieval(
             embed_batch_size=embed_batch_size,
             console=console,
         )
+
+    if bool(fail_on_empty) and len(results) == 0:
+        raise typer.Exit(code=1)
 
     if out is not None:
         p = write_retrieval_samples(results, out=Path(out), fmt=str(out_format))

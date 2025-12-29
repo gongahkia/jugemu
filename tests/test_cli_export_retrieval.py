@@ -46,6 +46,22 @@ def test_cli_export_retrieval_json_outputs_parseable_json(monkeypatch):
     assert "Exporting retrieval samples" not in res.output
 
 
+def test_cli_export_retrieval_fail_on_empty_exits_non_zero(monkeypatch):
+    runner = CliRunner()
+
+    def _fake_make_vector_store(**kwargs):  # type: ignore[no-untyped-def]
+        return object()
+
+    def _fake_dump_random_retrieval_samples(**kwargs):  # type: ignore[no-untyped-def]
+        return []
+
+    monkeypatch.setattr(cli, "make_vector_store", _fake_make_vector_store)
+    monkeypatch.setattr(cli, "dump_random_retrieval_samples", _fake_dump_random_retrieval_samples)
+
+    res = runner.invoke(cli.app, ["export-retrieval", "--json", "--fail-on-empty"])
+    assert res.exit_code != 0
+
+
 def test_cli_export_retrieval_uses_config_defaults(tmp_path, monkeypatch):
     runner = CliRunner()
 
