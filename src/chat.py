@@ -152,15 +152,23 @@ def build_prompt(
     return f"USER: {user_text}\nYOU: "
 
 
-def _render_retrieval_table(retrieved: list[tuple[str, float]], k: int) -> Table:
+def _render_retrieval_table(retrieved: list[tuple[str, float, dict | None]], k: int) -> Table:
+    has_rerank = any((meta or {}).get("rerank_score") is not None for (_t, _s, meta) in retrieved)
     t = Table(title=f"Nearest Messages (k={k})", show_lines=False)
-    t.add_column("Score", justify="right", no_wrap=True)
+    t.add_column("Vec", justify="right", no_wrap=True)
+    if has_rerank:
+        t.add_column("Rerank", justify="right", no_wrap=True)
     t.add_column("Message")
-    for text, score in retrieved:
+    for text, score, meta in retrieved:
         msg = text.replace("\n", " ").strip()
         if len(msg) > 140:
             msg = msg[:137] + "..."
-        t.add_row(f"{score:.3f}", msg)
+        cols = [f"{score:.3f}"]
+        if has_rerank:
+            rs = (meta or {}).get("rerank_score")
+            cols.append(f"{float(rs):.3f}" if rs is not None else "")
+        cols.append(msg)
+        t.add_row(*cols)
     return t
 
 
@@ -228,6 +236,22 @@ def main() -> None:
         action="store_true",
         help="Do not print retrieved messages table",
     )
+    ap.add_argument(
+        "--rerank",
+        action="store_true",
+        help="Rerank vector results with a cross-encoder (slower, often better).",
+    )
+    ap.add_argument(
+        "--rerank-model",
+        default="cross-encoder/ms-marco-MiniLM-L-6-v2",
+        help="Cross-encoder model name for reranking.",
+    )
+    ap.add_argument(
+        "--rerank-top-k",
+        type=int,
+        default=20,
+        help="How many vector hits to fetch before reranking.",
+    )
     args = ap.parse_args()
 
     show_retrieval = args.show_retrieval and not args.no_show_retrieval
@@ -247,6 +271,9 @@ def main() -> None:
         top_k=args.top_k,
         stop_seq=list(args.stop_seq or []),
         show_retrieval=show_retrieval,
+        rerank=bool(args.rerank),
+        rerank_model=str(args.rerank_model),
+        rerank_top_k=int(args.rerank_top_k),
     )
 
 
@@ -267,6 +294,9 @@ def run_chat(
     top_k: int = 60,
     stop_seq: list[str] | None = None,
     show_retrieval: bool = False,
+    rerank: bool = False,
+    rerank_model: str = "cross-encoder/ms-marco-MiniLM-L-6-v2",
+    rerank_top_k: int = 20,
 ) -> None:
     console = Console()
     messages_path = Path(messages) if messages else None
@@ -310,6 +340,9 @@ def run_chat(
             query=user_text,
             k=k,
             embedding_model=embedding_model,
+            rerank=bool(rerank),
+            rerank_model=str(rerank_model),
+            rerank_top_k=int(rerank_top_k),
         )
 
         with console.status("Thinking…", spinner="dots"):
@@ -347,7 +380,7 @@ def run_chat(
                 )
 
         if show_retrieval:
-            console.print(_render_retrieval_table([(t, s) for (t, s, _) in retrieved], k=k))
+            console.print(_render_retrieval_table(retrieved, k=k))
 
         answer = _clean_answer(out)
         console.print(Panel(answer, title="jugemu", border_style="green"))

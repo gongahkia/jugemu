@@ -300,6 +300,21 @@ def chat(
         "--prompt-template",
         help="Prompt template for generation: few-shot|scaffold|minimal",
     ),
+    rerank: bool = typer.Option(
+        False,
+        "--rerank",
+        help="Rerank vector results with a cross-encoder (slower, often better).",
+    ),
+    rerank_model: str = typer.Option(
+        "cross-encoder/ms-marco-MiniLM-L-6-v2",
+        "--rerank-model",
+        help="Cross-encoder model name for reranking.",
+    ),
+    rerank_top_k: int = typer.Option(
+        20,
+        "--rerank-top-k",
+        help="How many vector hits to fetch before reranking.",
+    ),
     min_score: float = typer.Option(0.35, "--min-score", help="Minimum retrieval score for hybrid corpus replies"),
 ):
     """Interactive chat (retrieval + generation)."""
@@ -318,6 +333,9 @@ def chat(
         show_retrieval=show_retrieval,
         reply_strategy=reply_strategy,
         prompt_template=str(prompt_template),
+        rerank=bool(rerank),
+        rerank_model=str(rerank_model),
+        rerank_top_k=int(rerank_top_k),
         min_score=min_score,
     )
 
