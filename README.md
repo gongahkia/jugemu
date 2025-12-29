@@ -28,6 +28,24 @@ python -m src.cli ingest \
   --collection messages
 ```
 
+Privacy notes:
+- jugemu runs **locally**. It does not call remote LLM APIs.
+- Ingestion writes a local ChromaDB database under `--persist` (default: `data/chroma`).
+- Embeddings are computed locally via `sentence-transformers` and stored in that ChromaDB directory.
+- If you want to scrub common PII-like strings before they ever hit the vector DB, use `--redact`.
+
+Example (redact emails + phone numbers before embedding/storing):
+
+```bash
+python -m src.cli ingest \
+  --messages data/messages.txt \
+  --persist data/chroma \
+  --collection messages \
+  --redact \
+  --redact-type email \
+  --redact-type phone
+```
+
 ## 3) Train the tiny model
 
 ```bash
@@ -47,6 +65,11 @@ python -m src.cli train \
   --out data/checkpoints \
   --training-mode pairs
 ```
+
+Privacy notes:
+- Training writes checkpoints under `--out` (default: `data/checkpoints`).
+- A small `run.json` (config + git hash) and `meta.json` are written alongside checkpoints.
+- If you want to scrub common PII-like strings before training, use `--redact`.
 ```
 
 ## 4) Chat (retrieve similar messages + generate)
