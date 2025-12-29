@@ -1300,6 +1300,11 @@ def chat(
         raise typer.BadParameter("--vector-backend must be one of: chroma|cassandra")
     vector_backend = vb
 
+    rs = str(reply_strategy or "").strip().lower()
+    if rs not in {"hybrid", "generate", "corpus"}:
+        raise typer.BadParameter("--reply-strategy must be one of: hybrid|generate|corpus")
+    reply_strategy = rs
+
     store = make_vector_store(
         backend=vector_backend,
         persist_dir=persist,
