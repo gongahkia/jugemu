@@ -81,6 +81,35 @@ def test_cli_browse_json_outputs_parseable_json(tmp_path: Path) -> None:
     assert "Top tokens" not in res.output
 
 
+def test_cli_browse_json_pretty_outputs_parseable_json(tmp_path: Path) -> None:
+    runner = CliRunner()
+
+    messages_path = tmp_path / "messages.txt"
+    messages_path.write_text("a\na\nb\n", encoding="utf-8")
+
+    res = runner.invoke(
+        cli.app,
+        [
+            "browse",
+            "--messages",
+            str(messages_path),
+            "--mode",
+            "tokens",
+            "--min-count",
+            "2",
+            "--top",
+            "10",
+            "--json-pretty",
+        ],
+    )
+    assert res.exit_code == 0
+    assert res.output.endswith("\n")
+    assert not res.output.endswith("\n\n")
+    payload = json.loads(res.output)
+    assert payload["mode"] == "tokens"
+    assert "\n  \"mode\"" in res.output
+
+
 def test_cli_browse_uses_config_defaults(tmp_path: Path) -> None:
     runner = CliRunner()
 
