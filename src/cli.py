@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+import json
 from pathlib import Path
 from typing import List
 
@@ -14,7 +15,7 @@ from .ingest_chroma import ingest_messages
 from .parse_exports import parse_export, write_canonical_messages
 from .config import JugemuConfig, load_optional_config
 from .pipeline import run_pipeline
-from .browse_stats import count_chars, count_tokens, top_items
+from .browse_stats import browse_report, count_chars, count_tokens, top_items
 from .store_factory import make_vector_store
 from .train_char_model import train_char_model
 from .vector_store_schema import reset_vector_store
@@ -76,6 +77,7 @@ def browse(
     top: int = typer.Option(50, "--top", help="Top-N items to print"),
     mode: str = typer.Option("both", "--mode", help="chars|tokens|both"),
     min_count: int = typer.Option(1, "--min-count", help="Only show items with count >= this"),
+    json_output: bool = typer.Option(False, "--json", help="Print JSON report to stdout"),
 ):
     """Print top-N most frequent characters and tokens."""
     cfg: JugemuConfig | None = None
@@ -91,9 +93,6 @@ def browse(
     raw = messages.read_text(encoding="utf-8", errors="replace")
     lines = [ln for ln in raw.replace("\r\n", "\n").replace("\r", "\n").split("\n") if ln]
 
-    console = Console()
-    console.print(Panel("Browsing corpus stats…", title="jugemu", border_style="cyan"))
-
     n = int(top)
     if n < 0:
         n = 0
@@ -101,6 +100,14 @@ def browse(
     m = str(mode or "both").strip().lower()
     if m not in {"chars", "tokens", "both"}:
         raise typer.BadParameter("--mode must be one of: chars|tokens|both")
+
+    if bool(json_output):
+        report = browse_report(lines, mode=m, top=n, min_count=int(min_count))
+        typer.echo(json.dumps(report, ensure_ascii=False))
+        return
+
+    console = Console()
+    console.print(Panel("Browsing corpus stats…", title="jugemu", border_style="cyan"))
 
     if m in {"chars", "both"}:
         ch = count_chars(lines)
