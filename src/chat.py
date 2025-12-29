@@ -1,7 +1,9 @@
 from __future__ import annotations
 
 import argparse
+import json
 from pathlib import Path
+from typing import Callable
 
 import torch
 from rich.console import Console
@@ -299,8 +301,10 @@ def run_chat(
     rerank_model: str = "cross-encoder/ms-marco-MiniLM-L-6-v2",
     rerank_top_k: int = 20,
     store: VectorStore | None = None,
+    json_output: bool = False,
+    input_fn: Callable[[str], str] = input,
+    emit_fn: Callable[[str], None] = print,
 ) -> None:
-    console = Console()
     messages_path = Path(messages) if messages else None
 
     resolved_device = device
@@ -315,25 +319,31 @@ def run_chat(
     loaded = load_checkpoint(checkpoint, device=resolved_device)
     stoi, itos = vocab_from_itos(loaded.vocab_itos)
 
-    console.print(Panel("Type a message. Use /help for commands.", title="jugemu", border_style="cyan"))
+    console: Console | None = None
+    if not json_output:
+        console = Console()
+        console.print(Panel("Type a message. Use /help for commands.", title="jugemu", border_style="cyan"))
     while True:
         try:
-            user_text = input("you> ").strip()
+            prompt = "" if json_output else "you> "
+            user_text = input_fn(prompt).strip()
         except (EOFError, KeyboardInterrupt):
-            console.print("\nBye.")
+            if console is not None:
+                console.print("\nBye.")
             return
 
         if not user_text:
             continue
 
         if user_text in {"/exit", "/quit", ":q"}:
-            console.print("Bye.")
             return
         if user_text == "/help":
-            console.print(_help_panel())
+            if console is not None:
+                console.print(_help_panel())
             continue
         if user_text == "/clear":
-            console.print("\n" * 80)
+            if console is not None:
+                console.print("\n" * 80)
             continue
 
         hits = retrieve_similar(
@@ -348,30 +358,32 @@ def run_chat(
             rerank_top_k=int(rerank_top_k),
         )
 
-        with console.status("Thinking…", spinner="dots"):
-            retrieved = [(h.text, h.score, h.metadata) for h in hits]
-            corpus_reply: str | None = None
+        def _compute_reply() -> tuple[str, list[tuple[str, float, dict | None]], str]:
+            retrieved_local = [(h.text, h.score, h.metadata) for h in hits]
+            corpus_reply_local: str | None = None
             if messages_path is not None and messages_path.exists():
-                corpus_reply = _choose_corpus_reply(
-                    retrieved=retrieved,
+                corpus_reply_local = _choose_corpus_reply(
+                    retrieved=retrieved_local,
                     messages_path=messages_path,
                     reply_strategy=reply_strategy,
                     min_score=min_score,
                 )
 
-            if reply_strategy == "corpus" or (reply_strategy == "hybrid" and corpus_reply is not None):
-                out = corpus_reply or ""
+            used = "generate"
+            if reply_strategy == "corpus" or (reply_strategy == "hybrid" and corpus_reply_local is not None):
+                used = "corpus"
+                out_local = corpus_reply_local or ""
             else:
-                prompt = build_prompt(
+                prompt_local = build_prompt(
                     user_text=user_text,
-                    retrieved=retrieved,
+                    retrieved=retrieved_local,
                     messages_path=messages_path,
                     template=prompt_template,
                 )
                 user_stops = [s for s in (stop_seq or []) if isinstance(s, str) and s]
-                out = sample_text(
+                out_local = sample_text(
                     model=loaded.model,
-                    prompt=prompt,
+                    prompt=prompt_local,
                     stoi=stoi,
                     itos=itos,
                     device=resolved_device,
@@ -381,12 +393,35 @@ def run_chat(
                     stop_on=["\n", "\nUSER:", "\nYOU:"] + user_stops,
                     return_full=False,
                 )
+            return out_local, retrieved_local, used
 
-        if show_retrieval:
-            console.print(_render_retrieval_table(retrieved, k=k))
+        if console is not None:
+            with console.status("Thinking…", spinner="dots"):
+                out, retrieved, used_strategy = _compute_reply()
+        else:
+            out, retrieved, used_strategy = _compute_reply()
 
         answer = _clean_answer(out)
-        console.print(Panel(answer, title="jugemu", border_style="green"))
+
+        if json_output:
+            event = {
+                "type": "turn",
+                "user": user_text,
+                "answer": answer,
+                "used_strategy": used_strategy,
+                "retrieved": [
+                    {"text": t, "score": float(s), "metadata": m}
+                    for (t, s, m) in retrieved
+                ],
+            }
+            emit_fn(json.dumps(event, ensure_ascii=False) + "\n")
+            continue
+
+        if show_retrieval and console is not None:
+            console.print(_render_retrieval_table(retrieved, k=k))
+
+        if console is not None:
+            console.print(Panel(answer, title="jugemu", border_style="green"))
 
 
 if __name__ == "__main__":

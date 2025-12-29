@@ -1218,6 +1218,11 @@ def chat(
         "--cassandra-password",
         help="Cassandra/Astra password (optional)",
     ),
+    json: bool = typer.Option(
+        False,
+        "--json",
+        help="Emit newline-delimited JSON turn summaries (no Rich output)",
+    ),
 ):
     """Interactive chat (retrieval + generation)."""
     cfg: JugemuConfig | None = None
@@ -1300,6 +1305,7 @@ def chat(
         rerank_top_k=int(rerank_top_k),
         min_score=min_score,
         store=store,
+        json_output=bool(json),
     )
 
 
