@@ -3,7 +3,15 @@ from __future__ import annotations
 import pytest
 
 from src.vector_store import CassandraVectorStore, ChromaVectorStore
-from src.vector_store_schema import ensure_schema_version, get_schema_version, set_schema_version
+from src.vector_store_schema import ensure_schema_version, get_schema_version, schema_info, set_schema_version
+
+
+def test_schema_info_includes_version_and_backends() -> None:
+    info = schema_info()
+    assert isinstance(info["schema_version"], int)
+    assert info["vector_backends"] == ["chroma", "cassandra"]
+    assert info["chroma"]["schema_file"]
+    assert info["cassandra"]["meta_key"] == "schema_version"
 
 
 def test_chroma_schema_version_roundtrip(tmp_path):

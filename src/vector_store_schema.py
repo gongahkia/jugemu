@@ -12,6 +12,21 @@ VECTOR_STORE_SCHEMA_VERSION = 1
 _SCHEMA_FILENAME = ".jugemu_vector_store_schema.json"
 
 
+def schema_info() -> dict:
+    return {
+        "schema_version": int(VECTOR_STORE_SCHEMA_VERSION),
+        "vector_backends": ["chroma", "cassandra"],
+        "chroma": {
+            "schema_file": _SCHEMA_FILENAME,
+            "scope": "per-collection",
+        },
+        "cassandra": {
+            "meta_key": "schema_version",
+            "scope": "per-store",
+        },
+    }
+
+
 def _schema_path(persist_dir: Path) -> Path:
     return Path(persist_dir) / _SCHEMA_FILENAME
 
