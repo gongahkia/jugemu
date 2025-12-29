@@ -31,9 +31,13 @@ app = typer.Typer(
 @app.command()
 def schema(
     json_output: bool = typer.Option(False, "--json", help="Print JSON to stdout"),
+    json_pretty: bool = typer.Option(False, "--json-pretty", help="Print pretty JSON to stdout"),
 ) -> None:
     """Print the current vector store schema version and backend info."""
     info = schema_info()
+    if bool(json_pretty):
+        typer.echo(json.dumps(info, ensure_ascii=False, indent=2) + "\n", nl=False)
+        return
     if bool(json_output):
         typer.echo(json.dumps(info, ensure_ascii=False))
         return
