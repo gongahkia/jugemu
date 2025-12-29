@@ -12,6 +12,7 @@ from .eval_char_model import default_prompts, evaluate_char_model, run_qualitati
 from .ingest_chroma import ingest_messages
 from .parse_exports import parse_export, write_canonical_messages
 from .config import JugemuConfig, load_optional_config
+from .pipeline import run_pipeline
 from .store_factory import make_vector_store
 from .train_char_model import train_char_model
 
@@ -58,6 +59,77 @@ def parse(
         lines = parse_export(inp, fmt, include_metadata=with_metadata)
         write_canonical_messages(lines, out)
     console.print(f"Wrote {len(lines)} messages to {out}")
+
+
+@app.command()
+def pipeline(
+    ctx: typer.Context,
+    inp: Path = typer.Option(..., "--in", exists=True, dir_okay=False, help="Input export file"),
+    fmt: str = typer.Option(
+        "plain",
+        "--format",
+        help="Input format: plain|whatsapp|telegram-json",
+    ),
+    with_metadata: bool = typer.Option(
+        False,
+        "--with-metadata",
+        help="Include timestamps/speaker tags when available (export-dependent).",
+    ),
+    epochs: int = typer.Option(5, "--epochs", help="Training epochs"),
+    device: str = typer.Option("auto", "--device", help="auto/cpu/mps/cuda"),
+):
+    """One-shot pipeline: parse -> ingest -> train -> smoke-sample."""
+    cfg: JugemuConfig | None = None
+    if isinstance(getattr(ctx, "obj", None), dict):
+        cfg = ctx.obj.get("config")
+
+    messages_out = Path("data/messages.txt")
+    persist_dir = Path("data/chroma")
+    checkpoints = Path("data/checkpoints")
+    collection = "messages"
+    embedding_model = "sentence-transformers/all-MiniLM-L6-v2"
+
+    if cfg is not None:
+        cfg_messages = cfg.get("paths", "messages")
+        if isinstance(cfg_messages, str):
+            messages_out = Path(cfg_messages)
+
+        cfg_persist = cfg.get("paths", "chroma_persist")
+        if isinstance(cfg_persist, str):
+            persist_dir = Path(cfg_persist)
+
+        cfg_ckpt = cfg.get("paths", "checkpoints")
+        if isinstance(cfg_ckpt, str):
+            checkpoints = Path(cfg_ckpt)
+
+        cfg_collection = cfg.get("chroma", "collection")
+        if isinstance(cfg_collection, str):
+            collection = cfg_collection
+
+        cfg_embed = cfg.get("embeddings", "model")
+        if isinstance(cfg_embed, str):
+            embedding_model = cfg_embed
+
+    console = Console()
+    console.print(Panel("Running pipeline…", title="jugemu", border_style="cyan"))
+    with console.status("parse -> ingest -> train -> smoke…", spinner="dots"):
+        res = run_pipeline(
+            inp=inp,
+            fmt=str(fmt),
+            with_metadata=bool(with_metadata),
+            messages_out=messages_out,
+            persist_dir=persist_dir,
+            collection=str(collection),
+            embedding_model=str(embedding_model),
+            train_out=checkpoints,
+            train_epochs=int(epochs),
+            device=str(device),
+        )
+
+    console.print(f"Wrote messages: {res.messages_path}")
+    console.print(f"Ingested into: {res.persist_dir} / {res.collection}")
+    console.print(f"Checkpoint: {res.checkpoint}")
+    console.print(Panel(res.smoke_sample, title="smoke-sample", border_style="green"))
 
 
 @app.command()
