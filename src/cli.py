@@ -56,6 +56,16 @@ def ingest(
         help="SentenceTransformers model for embeddings",
     ),
     batch: int = typer.Option(256, "--batch", help="Embed+add batch size"),
+    chunking: str = typer.Option(
+        "message",
+        "--chunking",
+        help="How to chunk messages for embeddings: message|window",
+    ),
+    window_size: int = typer.Option(
+        4,
+        "--window-size",
+        help="Sliding window size (only used when --chunking window).",
+    ),
     collapse_whitespace: bool = typer.Option(
         False,
         "--collapse-whitespace",
@@ -87,6 +97,8 @@ def ingest(
             collection_name=collection,
             embedding_model=embedding_model,
             batch=batch,
+            chunking=str(chunking),
+            window_size=int(window_size),
             collapse_whitespace=collapse_whitespace,
             strip_emoji=strip_emoji,
             redact=redact,

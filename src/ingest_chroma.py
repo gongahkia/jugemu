@@ -42,6 +42,38 @@ def stable_id(line_no: int, text: str) -> str:
     return f"{h}:{line_no}"
 
 
+def stable_window_id(start_line: int, end_line: int, text: str) -> str:
+    h = hashlib.sha1(text.encode("utf-8", errors="ignore")).hexdigest()
+    return f"{h}:{start_line}-{end_line}"
+
+
+def build_chunks(
+    items: List[Tuple[int, str]],
+    *,
+    chunking: str,
+    window_size: int,
+) -> List[Tuple[int, int, str]]:
+    """Return chunks as (start_line, end_line, text)."""
+    mode = str(chunking or "message").strip().lower()
+    if mode in {"message", "per-message", "per_message", "line"}:
+        return [(ln, ln, msg) for ln, msg in items]
+    if mode in {"window", "sliding", "sliding-window", "sliding_window"}:
+        n = int(window_size)
+        if n < 1:
+            n = 1
+        if len(items) < n:
+            return []
+        out: List[Tuple[int, int, str]] = []
+        for i in range(0, len(items) - n + 1):
+            win = items[i : i + n]
+            start_ln = int(win[0][0])
+            end_ln = int(win[-1][0])
+            text = "\n".join(m for _ln, m in win)
+            out.append((start_ln, end_ln, text))
+        return out
+    raise ValueError("chunking must be one of: message|window")
+
+
 def ingest_messages(
     *,
     messages_path: Path,
@@ -49,6 +81,8 @@ def ingest_messages(
     collection_name: str = "messages",
     embedding_model: str = "sentence-transformers/all-MiniLM-L6-v2",
     batch: int = 256,
+    chunking: str = "message",
+    window_size: int = 4,
     collapse_whitespace: bool = False,
     strip_emoji: bool = False,
     redact: bool = False,
@@ -65,7 +99,15 @@ def ingest_messages(
 
     store = ChromaVectorStore(persist_dir=persist_dir, collection_name=collection_name)
 
-    ids = [stable_id(line_no, t) for line_no, t in items]
+    chunks = build_chunks(items, chunking=str(chunking), window_size=int(window_size))
+    if not chunks:
+        raise ValueError("No chunks produced (try a smaller --window-size or use --chunking message)")
+
+    ids = [
+        stable_id(end_ln, t) if str(chunking).strip().lower() in {"message", "per-message", "per_message", "line"}
+        else stable_window_id(start_ln, end_ln, t)
+        for (start_ln, end_ln, t) in chunks
+    ]
 
     existing = set()
     try:
@@ -74,23 +116,36 @@ def ingest_messages(
     except Exception:
         existing = set()
 
-    texts_raw = [t for _, t in items]
+    texts_raw = [t for (_s, _e, t) in chunks]
     texts = [redact_text(t, types=redact_types) for t in texts_raw] if redact else list(texts_raw)
-    line_nos = [line_no for line_no, _ in items]
-    new_pairs = [(i, t, ln) for i, t, ln in zip(ids, texts, line_nos) if i not in existing]
+    bounds = [(s, e) for (s, e, _t) in chunks]
+    new_pairs = [(i, t, s, e) for i, t, (s, e) in zip(ids, texts, bounds) if i not in existing]
     if not new_pairs:
         return 0
 
     new_ids = [p[0] for p in new_pairs]
     new_texts = [p[1] for p in new_pairs]
-    new_line_nos = [p[2] for p in new_pairs]
+    new_starts = [p[2] for p in new_pairs]
+    new_ends = [p[3] for p in new_pairs]
 
     for start in range(0, len(new_texts), batch):
         chunk_texts = new_texts[start : start + batch]
         chunk_ids = new_ids[start : start + batch]
-        chunk_lines = new_line_nos[start : start + batch]
+        chunk_starts = new_starts[start : start + batch]
+        chunk_ends = new_ends[start : start + batch]
         chunk_emb = embed_texts(chunk_texts, embedding_model)
-        metadatas = [{"line": int(ln), "source": str(messages_path)} for ln in chunk_lines]
+        mode = str(chunking or "message").strip().lower()
+        metadatas = [
+            {
+                "line": int(end_ln),
+                "start_line": int(start_ln),
+                "end_line": int(end_ln),
+                "chunking": mode,
+                "window_size": int(window_size) if mode == "window" else 1,
+                "source": str(messages_path),
+            }
+            for start_ln, end_ln in zip(chunk_starts, chunk_ends)
+        ]
         store.add(ids=chunk_ids, texts=chunk_texts, embeddings=chunk_emb, metadatas=metadatas)
         if console is not None:
             console.log(f"Added {min(start + batch, len(new_texts))}/{len(new_texts)}")
@@ -105,6 +160,18 @@ def main() -> None:
     ap.add_argument("--collection", default="messages")
     ap.add_argument("--embedding-model", default="sentence-transformers/all-MiniLM-L6-v2")
     ap.add_argument("--batch", type=int, default=256)
+    ap.add_argument(
+        "--chunking",
+        default="message",
+        choices=["message", "window"],
+        help="How to chunk messages for embeddings: message|window.",
+    )
+    ap.add_argument(
+        "--window-size",
+        type=int,
+        default=4,
+        help="Sliding window size (only used when --chunking window).",
+    )
     ap.add_argument(
         "--collapse-whitespace",
         action="store_true",
@@ -132,6 +199,8 @@ def main() -> None:
             collection_name=args.collection,
             embedding_model=args.embedding_model,
             batch=args.batch,
+            chunking=str(args.chunking),
+            window_size=int(args.window_size),
             collapse_whitespace=bool(args.collapse_whitespace),
             strip_emoji=bool(args.strip_emoji),
             redact=bool(args.redact),
