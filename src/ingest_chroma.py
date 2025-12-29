@@ -173,6 +173,7 @@ def ingest_messages(
     embed_batch_size: int | None = None,
     chunking: str = "message",
     window_size: int = 4,
+    max_messages: int | None = None,
     exact_dedupe: bool = True,
     fuzzy_dedupe: bool = False,
     fuzzy_max_hamming: int = 6,
@@ -188,6 +189,12 @@ def ingest_messages(
         collapse_whitespace=bool(collapse_whitespace),
         strip_emoji=bool(strip_emoji),
     )
+
+    if max_messages is not None:
+        mm = int(max_messages)
+        if mm < 0:
+            mm = 0
+        items = items[:mm]
     if not items:
         raise ValueError("No messages found (expected one message per line)")
 
@@ -343,6 +350,12 @@ def main() -> None:
         default=None,
         help="SentenceTransformer encode() batch_size (optional; can reduce RAM/VRAM).",
     )
+    ap.add_argument(
+        "--max-messages",
+        type=int,
+        default=None,
+        help="Only ingest the first N messages (for faster iteration).",
+    )
     ap.add_argument("--batch", type=int, default=256)
     ap.add_argument(
         "--chunking",
@@ -399,6 +412,7 @@ def main() -> None:
             collection_name=args.collection,
             embedding_model=args.embedding_model,
             embed_batch_size=args.embed_batch_size,
+            max_messages=args.max_messages,
             batch=args.batch,
             chunking=str(args.chunking),
             window_size=int(args.window_size),
