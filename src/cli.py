@@ -9,6 +9,7 @@ from rich.panel import Panel
 
 from .chat import run_chat
 from .eval_char_model import default_prompts, evaluate_char_model, run_qualitative_prompts
+from .export_retrieval import dump_random_retrieval_samples
 from .ingest_chroma import ingest_messages
 from .parse_exports import parse_export, write_canonical_messages
 from .config import JugemuConfig, load_optional_config
@@ -738,6 +739,118 @@ def eval(
     )
     for p, o in zip(prompts, outs):
         console.print(Panel(o, title=f"prompt: {p!r}", border_style="green"))
+
+
+@app.command("export-retrieval")
+def export_retrieval(
+    ctx: typer.Context,
+    messages: Path = typer.Option(
+        Path("data/messages.txt"),
+        "--messages",
+        dir_okay=False,
+        help="messages.txt to sample random queries from",
+    ),
+    persist: Path = typer.Option(Path("data/chroma"), "--persist", help="ChromaDB persistence directory"),
+    collection: str = typer.Option("messages", "--collection"),
+    embedding_model: str = typer.Option(
+        "sentence-transformers/all-MiniLM-L6-v2",
+        "--embedding-model",
+        help="SentenceTransformers model for embeddings",
+    ),
+    samples: int = typer.Option(10, "--samples", help="How many random queries to sample"),
+    k: int = typer.Option(6, "--k", help="How many neighbors to retrieve per query"),
+    seed: int = typer.Option(1337, "--seed"),
+    embed_batch_size: int | None = typer.Option(
+        None,
+        "--embed-batch-size",
+        help="SentenceTransformer encode() batch_size for query embeddings.",
+    ),
+    vector_backend: str = typer.Option(
+        "chroma",
+        "--vector-backend",
+        help="Vector backend: chroma|cassandra",
+    ),
+    cassandra_contact_point: List[str] = typer.Option(
+        [],
+        "--cassandra-contact-point",
+        help="Cassandra contact point (repeatable). Default: 127.0.0.1",
+    ),
+    cassandra_keyspace: str = typer.Option(
+        "jugemu",
+        "--cassandra-keyspace",
+        help="Cassandra keyspace (for --vector-backend cassandra)",
+    ),
+    cassandra_table: str = typer.Option(
+        "messages",
+        "--cassandra-table",
+        help="Cassandra table (for --vector-backend cassandra)",
+    ),
+    cassandra_secure_connect_bundle: Path | None = typer.Option(
+        None,
+        "--cassandra-secure-connect-bundle",
+        help="Astra secure connect bundle zip (optional)",
+    ),
+    cassandra_username: str | None = typer.Option(
+        None,
+        "--cassandra-username",
+        help="Cassandra/Astra username (optional)",
+    ),
+    cassandra_password: str | None = typer.Option(
+        None,
+        "--cassandra-password",
+        help="Cassandra/Astra password (optional)",
+    ),
+):
+    """Dump random retrieval examples and their similarity scores."""
+    cfg: JugemuConfig | None = None
+    if isinstance(getattr(ctx, "obj", None), dict):
+        cfg = ctx.obj.get("config")
+
+    default_messages = Path("data/messages.txt")
+    default_persist = Path("data/chroma")
+
+    if cfg is not None:
+        cfg_messages = cfg.get("paths", "messages")
+        if isinstance(cfg_messages, str) and messages == default_messages:
+            messages = Path(cfg_messages)
+
+        cfg_persist = cfg.get("paths", "chroma_persist")
+        if isinstance(cfg_persist, str) and persist == default_persist:
+            persist = Path(cfg_persist)
+
+        cfg_collection = cfg.get("chroma", "collection")
+        if isinstance(cfg_collection, str) and collection == "messages":
+            collection = cfg_collection
+
+        cfg_embed = cfg.get("embeddings", "model")
+        if isinstance(cfg_embed, str) and embedding_model == "sentence-transformers/all-MiniLM-L6-v2":
+            embedding_model = cfg_embed
+
+    store = make_vector_store(
+        backend=vector_backend,
+        persist_dir=persist,
+        collection_name=collection,
+        cassandra_contact_points=list(cassandra_contact_point) or None,
+        cassandra_keyspace=str(cassandra_keyspace),
+        cassandra_table=str(cassandra_table),
+        cassandra_secure_connect_bundle=cassandra_secure_connect_bundle,
+        cassandra_username=cassandra_username,
+        cassandra_password=cassandra_password,
+    )
+
+    console = Console()
+    console.print(Panel("Exporting retrieval samples…", title="jugemu", border_style="cyan"))
+    with console.status("Embedding queries + querying store…", spinner="dots"):
+        dump_random_retrieval_samples(
+            messages_path=messages,
+            store=store,
+            embedding_model=embedding_model,
+            samples=int(samples),
+            k=int(k),
+            seed=int(seed),
+            embed_batch_size=embed_batch_size,
+            console=console,
+        )
 
 
 @app.command()
