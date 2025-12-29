@@ -2,6 +2,7 @@ from __future__ import annotations
 
 import json
 from pathlib import Path
+import shutil
 
 from .vector_store import CassandraVectorStore, ChromaVectorStore, VectorStore
 
@@ -88,5 +89,24 @@ def ensure_schema_version(store: VectorStore, *, expected: int = VECTOR_STORE_SC
     if int(cur) != want:
         raise ValueError(
             f"Vector store schema version mismatch (found {cur}, expected {want}). "
-            "Rebuild the store to migrate."
+            "Rebuild the store to migrate (see `jugemu rebuild-store --help`)."
         )
+
+
+def reset_vector_store(store: VectorStore) -> None:
+    """Best-effort destructive reset of the vector store contents."""
+    if isinstance(store, ChromaVectorStore):
+        shutil.rmtree(store.persist_dir, ignore_errors=True)
+        return
+
+    if isinstance(store, CassandraVectorStore):
+        session = store._require_session()
+        for cql in [
+            f"DROP TABLE IF EXISTS {store.keyspace}.{store.table}",
+            f"DROP TABLE IF EXISTS {store.keyspace}.{store.meta_table}",
+        ]:
+            try:
+                session.execute(cql)
+            except Exception:
+                pass
+        store._schema_ensured = False

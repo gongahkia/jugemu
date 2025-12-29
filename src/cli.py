@@ -15,6 +15,7 @@ from .config import JugemuConfig, load_optional_config
 from .pipeline import run_pipeline
 from .store_factory import make_vector_store
 from .train_char_model import train_char_model
+from .vector_store_schema import reset_vector_store
 
 
 app = typer.Typer(
@@ -317,6 +318,196 @@ def ingest(
         console.print("Nothing new to ingest.")
     else:
         console.print(f"Ingested {added} new messages into collection '{collection}'.")
+
+
+@app.command("rebuild-store")
+def rebuild_store(
+    ctx: typer.Context,
+    messages: Path = typer.Option(
+        Path("data/messages.txt"),
+        "--messages",
+        dir_okay=False,
+        help="Text file: one message per line",
+    ),
+    persist: Path = typer.Option(
+        Path("data/chroma"),
+        "--persist",
+        help="ChromaDB persistence directory",
+    ),
+    collection: str = typer.Option("messages", "--collection", help="Chroma collection name"),
+    embedding_model: str = typer.Option(
+        "sentence-transformers/all-MiniLM-L6-v2",
+        "--embedding-model",
+        help="SentenceTransformers model for embeddings",
+    ),
+    fast_embedding_model: bool = typer.Option(
+        False,
+        "--fast-embedding-model",
+        help="Use a smaller embedding model for speed (only affects the default embedding model).",
+    ),
+    batch: int = typer.Option(256, "--batch", help="Embed+add batch size"),
+    embed_batch_size: int | None = typer.Option(
+        None,
+        "--embed-batch-size",
+        help="SentenceTransformer encode() batch_size (optional; can reduce RAM/VRAM).",
+    ),
+    max_messages: int | None = typer.Option(
+        None,
+        "--max-messages",
+        help="Only ingest the first N messages (for faster iteration).",
+    ),
+    chunking: str = typer.Option(
+        "message",
+        "--chunking",
+        help="How to chunk messages for embeddings: message|window",
+    ),
+    window_size: int = typer.Option(
+        4,
+        "--window-size",
+        help="Sliding window size (only used when --chunking window).",
+    ),
+    exact_dedupe: bool = typer.Option(
+        True,
+        "--exact-dedupe/--no-exact-dedupe",
+        help="Exact dedupe by content hash (idempotent across repeated ingests).",
+    ),
+    fuzzy_dedupe: bool = typer.Option(
+        False,
+        "--fuzzy-dedupe",
+        help="Fuzzy dedupe within the current ingest run (simhash).",
+    ),
+    fuzzy_max_hamming: int = typer.Option(
+        6,
+        "--fuzzy-max-hamming",
+        help="Fuzzy dedupe threshold (lower is stricter).",
+    ),
+    collapse_whitespace: bool = typer.Option(
+        False,
+        "--collapse-whitespace",
+        help="Collapse repeated spaces/tabs in each message before embedding.",
+    ),
+    strip_emoji: bool = typer.Option(
+        False,
+        "--strip-emoji",
+        help="Remove emoji characters from messages before embedding.",
+    ),
+    redact: bool = typer.Option(
+        False,
+        "--redact",
+        help="Redact emails/phones/addresses before embedding/storing",
+    ),
+    redact_type: List[str] = typer.Option(
+        [],
+        "--redact-type",
+        help="Redaction type (repeatable): email|phone|address. Default: all.",
+    ),
+    vector_backend: str = typer.Option(
+        "chroma",
+        "--vector-backend",
+        help="Vector backend: chroma|cassandra",
+    ),
+    cassandra_contact_point: List[str] = typer.Option(
+        [],
+        "--cassandra-contact-point",
+        help="Cassandra contact point (repeatable). Default: 127.0.0.1",
+    ),
+    cassandra_keyspace: str = typer.Option(
+        "jugemu",
+        "--cassandra-keyspace",
+        help="Cassandra keyspace (for --vector-backend cassandra)",
+    ),
+    cassandra_table: str = typer.Option(
+        "messages",
+        "--cassandra-table",
+        help="Cassandra table (for --vector-backend cassandra)",
+    ),
+    cassandra_secure_connect_bundle: Path | None = typer.Option(
+        None,
+        "--cassandra-secure-connect-bundle",
+        help="Astra secure connect bundle zip (optional)",
+    ),
+    cassandra_username: str | None = typer.Option(
+        None,
+        "--cassandra-username",
+        help="Cassandra/Astra username (optional)",
+    ),
+    cassandra_password: str | None = typer.Option(
+        None,
+        "--cassandra-password",
+        help="Cassandra/Astra password (optional)",
+    ),
+):
+    """Destructively reset the vector store and rebuild it from messages."""
+    cfg: JugemuConfig | None = None
+    if isinstance(getattr(ctx, "obj", None), dict):
+        cfg = ctx.obj.get("config")
+
+    default_messages = Path("data/messages.txt")
+    default_persist = Path("data/chroma")
+
+    if cfg is not None:
+        cfg_messages = cfg.get("paths", "messages")
+        if isinstance(cfg_messages, str) and messages == default_messages:
+            messages = Path(cfg_messages)
+
+        cfg_persist = cfg.get("paths", "chroma_persist")
+        if isinstance(cfg_persist, str) and persist == default_persist:
+            persist = Path(cfg_persist)
+
+        cfg_collection = cfg.get("chroma", "collection")
+        if isinstance(cfg_collection, str) and collection == "messages":
+            collection = cfg_collection
+
+        cfg_embed = cfg.get("embeddings", "model")
+        if isinstance(cfg_embed, str) and embedding_model == "sentence-transformers/all-MiniLM-L6-v2":
+            embedding_model = cfg_embed
+
+        cfg_batch = cfg.get("embeddings", "batch")
+        if isinstance(cfg_batch, int) and int(batch) == 256:
+            batch = int(cfg_batch)
+
+    console = Console()
+    console.print(Panel("Rebuilding vector store…", title="jugemu", border_style="cyan"))
+
+    store = make_vector_store(
+        backend=vector_backend,
+        persist_dir=persist,
+        collection_name=collection,
+        cassandra_contact_points=list(cassandra_contact_point) or None,
+        cassandra_keyspace=str(cassandra_keyspace),
+        cassandra_table=str(cassandra_table),
+        cassandra_secure_connect_bundle=cassandra_secure_connect_bundle,
+        cassandra_username=cassandra_username,
+        cassandra_password=cassandra_password,
+    )
+
+    with console.status("Resetting store…", spinner="dots"):
+        reset_vector_store(store)
+
+    with console.status("Re-ingesting…", spinner="dots"):
+        added = ingest_messages(
+            messages_path=messages,
+            persist_dir=persist,
+            collection_name=collection,
+            embedding_model=embedding_model,
+            fast_embedding_model=fast_embedding_model,
+            embed_batch_size=embed_batch_size,
+            max_messages=max_messages,
+            batch=batch,
+            chunking=str(chunking),
+            window_size=int(window_size),
+            exact_dedupe=bool(exact_dedupe),
+            fuzzy_dedupe=bool(fuzzy_dedupe),
+            fuzzy_max_hamming=int(fuzzy_max_hamming),
+            collapse_whitespace=collapse_whitespace,
+            strip_emoji=strip_emoji,
+            redact=redact,
+            redact_types=list(redact_type),
+            store=store,
+            console=console,
+        )
+
+    console.print(f"Rebuilt store; ingested {added} messages into collection '{collection}'.")
 
 
 @app.command()
