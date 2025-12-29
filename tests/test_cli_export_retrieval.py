@@ -41,6 +41,8 @@ def test_cli_export_retrieval_json_outputs_parseable_json(monkeypatch):
 
     res = runner.invoke(cli.app, ["export-retrieval", "--json"])
     assert res.exit_code == 0
+    assert res.output.endswith("\n")
+    assert not res.output.endswith("\n\n")
     payload = json.loads(res.output)
     assert payload[0]["query"] == "q"
     assert "Exporting retrieval samples" not in res.output

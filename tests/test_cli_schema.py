@@ -22,5 +22,7 @@ def test_cli_schema_json_outputs_parseable_json() -> None:
 
     res = runner.invoke(cli.app, ["schema", "--json"])
     assert res.exit_code == 0
+    assert res.output.endswith("\n")
+    assert not res.output.endswith("\n\n")
     payload = json.loads(res.output)
     assert "schema_version" in payload

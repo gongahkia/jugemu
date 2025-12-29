@@ -72,6 +72,8 @@ def test_cli_browse_json_outputs_parseable_json(tmp_path: Path) -> None:
         ["browse", "--messages", str(messages_path), "--mode", "tokens", "--min-count", "2", "--top", "10", "--json"],
     )
     assert res.exit_code == 0
+    assert res.output.endswith("\n")
+    assert not res.output.endswith("\n\n")
     payload = json.loads(res.output)
     assert payload["mode"] == "tokens"
     assert payload["min_count"] == 2
