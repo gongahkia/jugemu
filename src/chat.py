@@ -96,6 +96,7 @@ def build_prompt(
     user_text: str,
     retrieved: list[tuple[str, float, dict | None]],
     messages_path: Path | None,
+    template: str = "few-shot",
 ) -> str:
     """Build a prompt using only content from messages.txt (+ the user's input).
 
@@ -104,6 +105,21 @@ def build_prompt(
     - Build a few-shot pattern: msg -> next_msg.
     - Then append the user's message and let the model produce the next line.
     """
+    template2 = str(template or "few-shot").strip().lower()
+    if template2 in {"minimal", "min"}:
+        return f"USER: {user_text}\nYOU: "
+
+    if template2 in {"scaffold", "conversation-scaffold", "conversation"}:
+        # Keep this extremely short; tiny models get confused by long instructions.
+        return (
+            "This is a chat. Reply as YOU. Keep it short.\n\n"
+            f"USER: {user_text}\n"
+            "YOU: "
+        )
+
+    if template2 not in {"few-shot", "fewshot", "retrieval-few-shot"}:
+        raise ValueError("prompt template must be one of: minimal|scaffold|few-shot")
+
     blocks: list[str] = []
     if messages_path is not None and messages_path.exists():
         # Keep few-shot small; too many examples hurts tiny models.
@@ -180,6 +196,12 @@ def main() -> None:
         help="hybrid: prefer corpus reply when confident, else generate",
     )
     ap.add_argument(
+        "--prompt-template",
+        default="few-shot",
+        choices=["few-shot", "scaffold", "minimal"],
+        help="Prompt template used for generation (ignored for corpus replies).",
+    )
+    ap.add_argument(
         "--min-score",
         type=float,
         default=0.35,
@@ -217,6 +239,7 @@ def main() -> None:
         messages=args.messages,
         reply_strategy=args.reply_strategy,
         min_score=args.min_score,
+        prompt_template=args.prompt_template,
         checkpoint=args.checkpoint,
         device=args.device,
         max_new=args.max_new,
@@ -236,6 +259,7 @@ def run_chat(
     messages: str | None = None,
     reply_strategy: str = "hybrid",
     min_score: float = 0.35,
+    prompt_template: str = "few-shot",
     checkpoint: str,
     device: str = "auto",
     max_new: int = 240,
@@ -302,7 +326,12 @@ def run_chat(
             if reply_strategy == "corpus" or (reply_strategy == "hybrid" and corpus_reply is not None):
                 out = corpus_reply or ""
             else:
-                prompt = build_prompt(user_text=user_text, retrieved=retrieved, messages_path=messages_path)
+                prompt = build_prompt(
+                    user_text=user_text,
+                    retrieved=retrieved,
+                    messages_path=messages_path,
+                    template=prompt_template,
+                )
                 user_stops = [s for s in (stop_seq or []) if isinstance(s, str) and s]
                 out = sample_text(
                     model=loaded.model,

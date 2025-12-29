@@ -295,6 +295,11 @@ def chat(
         "--reply-strategy",
         help="hybrid/generate/corpus",
     ),
+    prompt_template: str = typer.Option(
+        "few-shot",
+        "--prompt-template",
+        help="Prompt template for generation: few-shot|scaffold|minimal",
+    ),
     min_score: float = typer.Option(0.35, "--min-score", help="Minimum retrieval score for hybrid corpus replies"),
 ):
     """Interactive chat (retrieval + generation)."""
@@ -312,6 +317,7 @@ def chat(
         stop_seq=list(stop_seq),
         show_retrieval=show_retrieval,
         reply_strategy=reply_strategy,
+        prompt_template=str(prompt_template),
         min_score=min_score,
     )
 
