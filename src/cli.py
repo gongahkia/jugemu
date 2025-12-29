@@ -62,8 +62,18 @@ def parse(
 
 @app.command()
 def ingest(
-    messages: Path = typer.Option(..., "--messages", exists=True, dir_okay=False, help="Text file: one message per line"),
-    persist: Path = typer.Option(..., "--persist", help="ChromaDB persistence directory"),
+    ctx: typer.Context,
+    messages: Path = typer.Option(
+        Path("data/messages.txt"),
+        "--messages",
+        dir_okay=False,
+        help="Text file: one message per line",
+    ),
+    persist: Path = typer.Option(
+        Path("data/chroma"),
+        "--persist",
+        help="ChromaDB persistence directory",
+    ),
     collection: str = typer.Option("messages", "--collection", help="Chroma collection name"),
     embedding_model: str = typer.Option(
         "sentence-transformers/all-MiniLM-L6-v2",
@@ -153,6 +163,34 @@ def ingest(
     ),
 ):
     """Embed messages and store them in ChromaDB."""
+    cfg: JugemuConfig | None = None
+    if isinstance(getattr(ctx, "obj", None), dict):
+        cfg = ctx.obj.get("config")
+
+    default_messages = Path("data/messages.txt")
+    default_persist = Path("data/chroma")
+
+    if cfg is not None:
+        cfg_messages = cfg.get("paths", "messages")
+        if isinstance(cfg_messages, str) and messages == default_messages:
+            messages = Path(cfg_messages)
+
+        cfg_persist = cfg.get("paths", "chroma_persist")
+        if isinstance(cfg_persist, str) and persist == default_persist:
+            persist = Path(cfg_persist)
+
+        cfg_collection = cfg.get("chroma", "collection")
+        if isinstance(cfg_collection, str) and collection == "messages":
+            collection = cfg_collection
+
+        cfg_embed = cfg.get("embeddings", "model")
+        if isinstance(cfg_embed, str) and embedding_model == "sentence-transformers/all-MiniLM-L6-v2":
+            embedding_model = cfg_embed
+
+        cfg_batch = cfg.get("embeddings", "batch")
+        if isinstance(cfg_batch, int) and int(batch) == 256:
+            batch = int(cfg_batch)
+
     console = Console()
     console.print(Panel("Ingesting messages…", title="jugemu", border_style="cyan"))
     store = make_vector_store(
