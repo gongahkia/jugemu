@@ -1097,7 +1097,7 @@ def export_retrieval(
             raise typer.Exit(code=1)
         if out is not None:
             write_retrieval_samples(results, out=Path(out), fmt=str(out_format))
-        typer.echo(format_retrieval_samples_json(results))
+        typer.echo(format_retrieval_samples_json(results), nl=False)
         return
 
     if bool(no_print):
