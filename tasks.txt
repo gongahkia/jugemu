@@ -1,2 +1,1 @@
-Add `pipeline --vector-backend` support (chroma/cassandra + cassandra flags)
 Add tests for new CLI flags to keep coverage green
