@@ -30,12 +30,17 @@ def parse(
         "--format",
         help="Input format: plain|whatsapp|telegram-json",
     ),
+    with_metadata: bool = typer.Option(
+        False,
+        "--with-metadata",
+        help="Include timestamps/speaker tags when available (export-dependent).",
+    ),
 ):
     """Convert a chat export into canonical one-message-per-line text."""
     console = Console()
     console.print(Panel("Parsing export…", title="jugemu", border_style="cyan"))
     with console.status("Parsing + writing…", spinner="dots"):
-        lines = parse_export(inp, fmt)
+        lines = parse_export(inp, fmt, include_metadata=with_metadata)
         write_canonical_messages(lines, out)
     console.print(f"Wrote {len(lines)} messages to {out}")
 

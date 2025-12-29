@@ -28,11 +28,11 @@ def parse_plain_lines(path: Path) -> List[str]:
 
 _WA_HEADER_RE = re.compile(
     r"^(?P<date>\d{1,2}/\d{1,2}/\d{2,4}),\s+"
-    r"(?P<time>\d{1,2}:\d{2})(?:\s?(?:AM|PM))?\s+-\s+(?P<body>.*)$"
+    r"(?P<time>\d{1,2}:\d{2})(?:\s?(?P<ampm>AM|PM))?\s+-\s+(?P<body>.*)$"
 )
 
 
-def parse_whatsapp_export(path: Path) -> List[str]:
+def parse_whatsapp_export(path: Path, *, include_metadata: bool = False) -> List[str]:
     """Parse WhatsApp .txt exports.
 
     Expected line format (varies by locale; this covers the common US-like export):
@@ -55,20 +55,30 @@ def parse_whatsapp_export(path: Path) -> List[str]:
             messages.append(joined)
         cur = []
 
+    cur_prefix: str | None = None
+
     for ln in raw.split("\n"):
         m = _WA_HEADER_RE.match(ln)
         if m:
             flush()
+            date = m.group("date").strip()
+            time = m.group("time").strip()
+            ampm = (m.group("ampm") or "").strip()
+            ts = f"{date}, {time}{(' ' + ampm) if ampm else ''}".strip()
             body = m.group("body").strip()
             # Skip system messages without a "Name: " prefix.
             if ":" in body:
                 _name, msg = body.split(":", 1)
+                name = _name.strip()
                 msg = msg.strip()
                 if msg and msg != "<Media omitted>":
+                    cur_prefix = f"[{ts}] {name}: " if include_metadata else None
                     cur = [msg]
                 else:
+                    cur_prefix = None
                     cur = []
             else:
+                cur_prefix = None
                 cur = []
             continue
 
@@ -77,6 +87,57 @@ def parse_whatsapp_export(path: Path) -> List[str]:
             cur.append(ln.strip())
 
     flush()
+    if include_metadata:
+        # Re-run with prefixes applied (flush used only message text).
+        # We store prefixes during parsing and apply them as we append.
+        # To keep logic minimal, we rebuild in-place when metadata is enabled.
+        rebuilt: List[str] = []
+        raw = path.read_text(encoding="utf-8", errors="replace")
+        raw = raw.replace("\r\n", "\n").replace("\r", "\n")
+        cur = []
+        prefix: str | None = None
+
+        def flush2() -> None:
+            nonlocal cur, prefix
+            if not cur:
+                prefix = None
+                return
+            joined = _clean_line(" ".join(cur))
+            if joined:
+                rebuilt.append((prefix or "") + joined)
+            cur = []
+            prefix = None
+
+        for ln in raw.split("\n"):
+            m = _WA_HEADER_RE.match(ln)
+            if m:
+                flush2()
+                date = m.group("date").strip()
+                time = m.group("time").strip()
+                ampm = (m.group("ampm") or "").strip()
+                ts = f"{date}, {time}{(' ' + ampm) if ampm else ''}".strip()
+                body = m.group("body").strip()
+                if ":" in body:
+                    _name, msg = body.split(":", 1)
+                    name = _name.strip()
+                    msg = msg.strip()
+                    if msg and msg != "<Media omitted>":
+                        prefix = f"[{ts}] {name}: "
+                        cur = [msg]
+                    else:
+                        prefix = None
+                        cur = []
+                else:
+                    prefix = None
+                    cur = []
+                continue
+
+            if cur and ln.strip():
+                cur.append(ln.strip())
+
+        flush2()
+        return rebuilt
+
     return messages
 
 
@@ -98,7 +159,7 @@ def _telegram_text_to_str(t) -> str:
     return ""
 
 
-def parse_telegram_json(path: Path) -> List[str]:
+def parse_telegram_json(path: Path, *, include_metadata: bool = False) -> List[str]:
     """Parse Telegram Desktop JSON export (result.json).
 
     Telegram exports have a `messages` array with each message containing a `text`
@@ -123,18 +184,28 @@ def parse_telegram_json(path: Path) -> List[str]:
         text = _telegram_text_to_str(msg.get("text"))
         cleaned = _clean_line(text)
         if cleaned:
-            out.append(cleaned)
+            if include_metadata:
+                date = msg.get("date")
+                sender = msg.get("from")
+                prefix = ""
+                if isinstance(date, str) and date.strip():
+                    prefix += f"[{date.strip()}] "
+                if isinstance(sender, str) and sender.strip():
+                    prefix += f"{sender.strip()}: "
+                out.append(prefix + cleaned)
+            else:
+                out.append(cleaned)
     return out
 
 
-def parse_export(path: Path, fmt: str) -> List[str]:
+def parse_export(path: Path, fmt: str, *, include_metadata: bool = False) -> List[str]:
     fmt2 = fmt.strip().lower()
     if fmt2 in {"plain", "txt", "lines"}:
         return parse_plain_lines(path)
     if fmt2 in {"whatsapp", "wa"}:
-        return parse_whatsapp_export(path)
+        return parse_whatsapp_export(path, include_metadata=bool(include_metadata))
     if fmt2 in {"telegram", "telegram-json", "telegram_json", "tg"}:
-        return parse_telegram_json(path)
+        return parse_telegram_json(path, include_metadata=bool(include_metadata))
     raise ParseError(f"Unknown format: {fmt}")
 
 
