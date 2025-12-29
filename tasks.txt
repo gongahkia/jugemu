@@ -1,4 +1,3 @@
-Add validation for `chat --prompt-template` (reject invalid)
 Add `schema --json` pretty output to `--json-pretty` (indent=2)
 Add `browse --json-pretty` (indent=2)
 Add `export-retrieval --json-pretty` (indent=2)
