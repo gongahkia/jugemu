@@ -15,7 +15,7 @@ from .ingest_chroma import ingest_messages
 from .parse_exports import parse_export, write_canonical_messages
 from .config import JugemuConfig, load_optional_config
 from .pipeline import run_pipeline
-from .browse_stats import browse_report, count_chars, count_tokens, top_items
+from .browse_stats import browse_report, count_chars, count_tokens, top_items, write_browse_report
 from .store_factory import make_vector_store
 from .train_char_model import train_char_model
 from .vector_store_schema import reset_vector_store, schema_info
@@ -93,6 +93,7 @@ def browse(
     mode: str = typer.Option("both", "--mode", help="chars|tokens|both"),
     min_count: int = typer.Option(1, "--min-count", help="Only show items with count >= this"),
     json_output: bool = typer.Option(False, "--json", help="Print JSON report to stdout"),
+    out: Path | None = typer.Option(None, "--out", help="Write JSON report to this path"),
 ):
     """Print top-N most frequent characters and tokens."""
     cfg: JugemuConfig | None = None
@@ -132,8 +133,10 @@ def browse(
     if m not in {"chars", "tokens", "both"}:
         raise typer.BadParameter("--mode must be one of: chars|tokens|both")
 
+    report = browse_report(lines, mode=m, top=n, min_count=int(min_count))
+    if out is not None:
+        write_browse_report(report, out=Path(out))
     if bool(json_output):
-        report = browse_report(lines, mode=m, top=n, min_count=int(min_count))
         typer.echo(json.dumps(report, ensure_ascii=False))
         return
 
