@@ -1,6 +1,32 @@
-# jugemu (tiny messages LLM + ChromaDB)
+[![](https://img.shields.io/badge/jugemu_1.0.0-passing-green)](https://github.com/gongahkia/jugemu/releases/tag/1.0.0)
+
+# `Jugemu`
+
+A tiny message LLM.
 
 This is an intentionally **tiny and stupid** character-level language model trained on *your* message corpus, plus a **ChromaDB** vector store for retrieval.
+
+## Stack
+
+...
+
+## Usage
+
+...
+
+## Screenshots
+
+...
+
+## Architecture
+
+```mermaid
+
+```
+
+## Reference 
+
+...
 
 ## Setup
 
