@@ -1,0 +1,10 @@
+{
+  "name": "Test Chat",
+  "type": "personal_chat",
+  "messages": [
+    {"id": 1, "type": "message", "text": "hello"},
+    {"id": 2, "type": "message", "text": [{"type": "bold", "text": "big"}, " text"]},
+    {"id": 3, "type": "service", "text": "Alice joined"},
+    {"id": 4, "type": "message", "text": "  spaced   out  "}
+  ]
+}

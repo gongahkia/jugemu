@@ -1,4 +1,3 @@
-Implement parsers/converters for common exports into canonical format (with unit tests + golden fixtures)
 Add learning-rate schedule option (cosine / warmup) and gradient accumulation to support small GPUs/CPU
 Add a minimal evaluation harness: "style imitation" proxy metrics (char perplexity on heldout) and qualitative prompts set
 Add a message normalization pipeline: newline normalization, repeated whitespace collapsing option, emoji handling toggle

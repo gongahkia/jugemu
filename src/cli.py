@@ -9,6 +9,7 @@ from rich.panel import Panel
 
 from .chat import run_chat
 from .ingest_chroma import ingest_messages
+from .parse_exports import parse_export, write_canonical_messages
 from .train_char_model import train_char_model
 
 
@@ -17,6 +18,25 @@ app = typer.Typer(
     rich_markup_mode="rich",
     add_completion=False,
 )
+
+
+@app.command()
+def parse(
+    inp: Path = typer.Option(..., "--in", exists=True, dir_okay=False, help="Input export file"),
+    out: Path = typer.Option(Path("data/messages.txt"), "--out", help="Output canonical messages.txt"),
+    fmt: str = typer.Option(
+        "plain",
+        "--format",
+        help="Input format: plain|whatsapp|telegram-json",
+    ),
+):
+    """Convert a chat export into canonical one-message-per-line text."""
+    console = Console()
+    console.print(Panel("Parsing export…", title="jugemu", border_style="cyan"))
+    with console.status("Parsing + writing…", spinner="dots"):
+        lines = parse_export(inp, fmt)
+        write_canonical_messages(lines, out)
+    console.print(f"Wrote {len(lines)} messages to {out}")
 
 
 @app.command()

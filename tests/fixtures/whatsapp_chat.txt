@@ -1,0 +1,7 @@
+12/29/25, 10:30 PM - Alice: Hello!
+12/29/25, 10:31 PM - Bob: hi
+12/29/25, 10:32 PM - Alice: this is a multiline
+message that continues
+12/29/25, 10:33 PM - Messages and calls are end-to-end encrypted. No one outside of this chat, not even WhatsApp, can read or listen to them.
+12/29/25, 10:34 PM - Bob: <Media omitted>
+12/29/25, 10:35 PM - Bob: ok
