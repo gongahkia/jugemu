@@ -9,7 +9,7 @@ from rich.panel import Panel
 
 from .chat import run_chat
 from .eval_char_model import default_prompts, evaluate_char_model, run_qualitative_prompts
-from .export_retrieval import dump_random_retrieval_samples
+from .export_retrieval import dump_random_retrieval_samples, write_retrieval_samples
 from .ingest_chroma import ingest_messages
 from .parse_exports import parse_export, write_canonical_messages
 from .config import JugemuConfig, load_optional_config
@@ -817,6 +817,16 @@ def export_retrieval(
         "--embed-batch-size",
         help="SentenceTransformer encode() batch_size for query embeddings.",
     ),
+    out: Path | None = typer.Option(
+        None,
+        "--out",
+        help="Optional output file path (writes results instead of just printing).",
+    ),
+    out_format: str = typer.Option(
+        "jsonl",
+        "--out-format",
+        help="Output format when --out is set: json|jsonl.",
+    ),
     vector_backend: str = typer.Option(
         "chroma",
         "--vector-backend",
@@ -893,7 +903,7 @@ def export_retrieval(
     console = Console()
     console.print(Panel("Exporting retrieval samples…", title="jugemu", border_style="cyan"))
     with console.status("Embedding queries + querying store…", spinner="dots"):
-        dump_random_retrieval_samples(
+        results = dump_random_retrieval_samples(
             messages_path=messages,
             store=store,
             embedding_model=embedding_model,
@@ -903,6 +913,10 @@ def export_retrieval(
             embed_batch_size=embed_batch_size,
             console=console,
         )
+
+    if out is not None:
+        p = write_retrieval_samples(results, out=Path(out), fmt=str(out_format))
+        console.print(f"Wrote {len(results)} queries to {p}")
 
 
 @app.command()
