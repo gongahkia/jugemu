@@ -12,6 +12,7 @@ from rich.text import Text
 from .load_checkpoint import load_checkpoint, vocab_from_itos
 from .retrieve import retrieve_similar
 from .sample import sample_text
+from .vector_store import VectorStore
 
 
 def _read_next_nonempty_line(path: Path, after_line_no: int) -> str | None:
@@ -297,6 +298,7 @@ def run_chat(
     rerank: bool = False,
     rerank_model: str = "cross-encoder/ms-marco-MiniLM-L-6-v2",
     rerank_top_k: int = 20,
+    store: VectorStore | None = None,
 ) -> None:
     console = Console()
     messages_path = Path(messages) if messages else None
@@ -340,6 +342,7 @@ def run_chat(
             query=user_text,
             k=k,
             embedding_model=embedding_model,
+            store=store,
             rerank=bool(rerank),
             rerank_model=str(rerank_model),
             rerank_top_k=int(rerank_top_k),

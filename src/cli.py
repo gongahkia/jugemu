@@ -394,8 +394,54 @@ def chat(
         help="How many vector hits to fetch before reranking.",
     ),
     min_score: float = typer.Option(0.35, "--min-score", help="Minimum retrieval score for hybrid corpus replies"),
+    vector_backend: str = typer.Option(
+        "chroma",
+        "--vector-backend",
+        help="Vector backend: chroma|cassandra",
+    ),
+    cassandra_contact_point: List[str] = typer.Option(
+        [],
+        "--cassandra-contact-point",
+        help="Cassandra contact point (repeatable). Default: 127.0.0.1",
+    ),
+    cassandra_keyspace: str = typer.Option(
+        "jugemu",
+        "--cassandra-keyspace",
+        help="Cassandra keyspace (for --vector-backend cassandra)",
+    ),
+    cassandra_table: str = typer.Option(
+        "messages",
+        "--cassandra-table",
+        help="Cassandra table (for --vector-backend cassandra)",
+    ),
+    cassandra_secure_connect_bundle: Path | None = typer.Option(
+        None,
+        "--cassandra-secure-connect-bundle",
+        help="Astra secure connect bundle zip (optional)",
+    ),
+    cassandra_username: str | None = typer.Option(
+        None,
+        "--cassandra-username",
+        help="Cassandra/Astra username (optional)",
+    ),
+    cassandra_password: str | None = typer.Option(
+        None,
+        "--cassandra-password",
+        help="Cassandra/Astra password (optional)",
+    ),
 ):
     """Interactive chat (retrieval + generation)."""
+    store = make_vector_store(
+        backend=vector_backend,
+        persist_dir=persist,
+        collection_name=collection,
+        cassandra_contact_points=list(cassandra_contact_point) or None,
+        cassandra_keyspace=str(cassandra_keyspace),
+        cassandra_table=str(cassandra_table),
+        cassandra_secure_connect_bundle=cassandra_secure_connect_bundle,
+        cassandra_username=cassandra_username,
+        cassandra_password=cassandra_password,
+    )
     run_chat(
         messages=str(messages),
         persist=str(persist),
@@ -415,6 +461,7 @@ def chat(
         rerank_model=str(rerank_model),
         rerank_top_k=int(rerank_top_k),
         min_score=min_score,
+        store=store,
     )
 
 
