@@ -11,6 +11,7 @@ from .chat import run_chat
 from .eval_char_model import default_prompts, evaluate_char_model, run_qualitative_prompts
 from .ingest_chroma import ingest_messages
 from .parse_exports import parse_export, write_canonical_messages
+from .config import JugemuConfig, load_optional_config
 from .store_factory import make_vector_store
 from .train_char_model import train_char_model
 
@@ -20,6 +21,19 @@ app = typer.Typer(
     rich_markup_mode="rich",
     add_completion=False,
 )
+
+
+@app.callback()
+def _global_options(
+    ctx: typer.Context,
+    config: Path | None = typer.Option(
+        None,
+        "--config",
+        help="Optional config.toml path (defaults to ./config.toml when present)",
+    ),
+):
+    cfg = load_optional_config(config)
+    ctx.obj = {"config": cfg}
 
 
 @app.command()
