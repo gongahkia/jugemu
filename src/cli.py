@@ -461,6 +461,7 @@ def eval(
 
 @app.command()
 def chat(
+    ctx: typer.Context,
     messages: Path = typer.Option(
         Path("data/messages.txt"),
         "--messages",
@@ -547,6 +548,55 @@ def chat(
     ),
 ):
     """Interactive chat (retrieval + generation)."""
+    cfg: JugemuConfig | None = None
+    if isinstance(getattr(ctx, "obj", None), dict):
+        cfg = ctx.obj.get("config")
+
+    default_messages = Path("data/messages.txt")
+    default_persist = Path("data/chroma")
+    default_checkpoint = Path("data/checkpoints/latest.pt")
+
+    if cfg is not None:
+        cfg_messages = cfg.get("paths", "messages")
+        if isinstance(cfg_messages, str) and messages == default_messages:
+            messages = Path(cfg_messages)
+
+        cfg_persist = cfg.get("paths", "chroma_persist")
+        if isinstance(cfg_persist, str) and persist == default_persist:
+            persist = Path(cfg_persist)
+
+        cfg_collection = cfg.get("chroma", "collection")
+        if isinstance(cfg_collection, str) and collection == "messages":
+            collection = cfg_collection
+
+        cfg_embed = cfg.get("embeddings", "model")
+        if isinstance(cfg_embed, str) and embedding_model == "sentence-transformers/all-MiniLM-L6-v2":
+            embedding_model = cfg_embed
+
+        cfg_ckpt = cfg.get("paths", "checkpoints")
+        if isinstance(cfg_ckpt, str) and checkpoint == default_checkpoint:
+            checkpoint = Path(cfg_ckpt) / "latest.pt"
+
+        cfg_k = cfg.get("chat", "k")
+        if isinstance(cfg_k, int) and int(k) == 6:
+            k = int(cfg_k)
+
+        cfg_max_new = cfg.get("chat", "max_new")
+        if isinstance(cfg_max_new, int) and int(max_new) == 240:
+            max_new = int(cfg_max_new)
+
+        cfg_temp = cfg.get("chat", "temperature")
+        if isinstance(cfg_temp, (int, float)) and float(temperature) == 0.9:
+            temperature = float(cfg_temp)
+
+        cfg_top_k = cfg.get("chat", "top_k")
+        if isinstance(cfg_top_k, int) and int(top_k) == 60:
+            top_k = int(cfg_top_k)
+
+        cfg_device = cfg.get("chat", "device")
+        if isinstance(cfg_device, str) and str(device) == "auto":
+            device = cfg_device
+
     store = make_vector_store(
         backend=vector_backend,
         persist_dir=persist,
