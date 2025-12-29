@@ -21,6 +21,9 @@ dependencies = [
 	"cassandra-driver>=3.29.0",
 ]
 
+[project.scripts]
+jugemu-ingest = "src.entrypoints:ingest_main"
+
 [project.optional-dependencies]
 dev = ["pytest>=8.0.0"]
 
