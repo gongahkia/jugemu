@@ -93,3 +93,53 @@ make chat
 Notes:
 - This model is deliberately small; it will not be factual or safe in general.
 - It will mostly learn your *style* and short-range character patterns.
+
+## Configuration (config.toml)
+
+Most commands accept a global `--config` option (defaults to `./config.toml` when present).
+
+Supported keys:
+
+```toml
+[paths]
+# Default messages path used by commands when you didn't pass --messages.
+messages = "data/messages.txt"
+
+# Chroma persist directory used by commands when you didn't pass --persist.
+chroma_persist = "data/chroma"
+
+# Checkpoints directory used by train/chat/pipeline when you didn't pass --checkpoint/--out.
+checkpoints = "data/checkpoints"
+
+[chroma]
+collection = "messages"
+
+[embeddings]
+model = "sentence-transformers/all-MiniLM-L6-v2"
+
+[browse]
+mode = "both"       # chars|tokens|both
+top = 50
+min_count = 1
+json = false
+
+[export_retrieval]
+samples = 10
+k = 6
+seed = 1337
+embed_batch_size = 32
+out_format = "jsonl" # json|jsonl
+no_print = false
+
+[pipeline]
+vector_backend = "chroma" # chroma|cassandra
+smoke_prompt = "hello"
+smoke_max_new = 120
+
+[chat]
+k = 6
+max_new = 240
+temperature = 0.9
+top_k = 60
+device = "auto" # auto/cpu/mps/cuda
+```
