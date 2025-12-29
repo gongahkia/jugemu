@@ -981,6 +981,11 @@ def export_retrieval(
         "--json",
         help="Print machine-readable JSON to stdout",
     ),
+    json_pretty: bool = typer.Option(
+        False,
+        "--json-pretty",
+        help="Print pretty machine-readable JSON to stdout",
+    ),
     fail_on_empty: bool = typer.Option(
         False,
         "--fail-on-empty",
@@ -1099,7 +1104,7 @@ def export_retrieval(
         cassandra_password=cassandra_password,
     )
 
-    if bool(json_output):
+    if bool(json_output) or bool(json_pretty):
         results = dump_random_retrieval_samples(
             messages_path=messages,
             store=store,
@@ -1116,7 +1121,10 @@ def export_retrieval(
             raise typer.Exit(code=1)
         if out is not None:
             write_retrieval_samples(results, out=Path(out), fmt=str(out_format))
-        typer.echo(format_retrieval_samples_json(results), nl=False)
+        if bool(json_pretty):
+            typer.echo(json.dumps(results, ensure_ascii=False, indent=2) + "\n", nl=False)
+        else:
+            typer.echo(format_retrieval_samples_json(results), nl=False)
         return
 
     if bool(no_print):
