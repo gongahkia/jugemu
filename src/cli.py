@@ -180,6 +180,8 @@ def pipeline(
     ),
     epochs: int = typer.Option(5, "--epochs", help="Training epochs"),
     device: str = typer.Option("auto", "--device", help="auto/cpu/mps/cuda"),
+    smoke_prompt: str = typer.Option("hello", "--smoke-prompt", help="Smoke test prompt"),
+    smoke_max_new: int = typer.Option(120, "--smoke-max-new", help="Smoke test max new tokens"),
     vector_backend: str = typer.Option(
         "chroma",
         "--vector-backend",
@@ -268,6 +270,8 @@ def pipeline(
             cassandra_password=cassandra_password,
             train_out=checkpoints,
             train_epochs=int(epochs),
+            smoke_prompt=str(smoke_prompt),
+            smoke_max_new=int(smoke_max_new),
             device=str(device),
         )
 
