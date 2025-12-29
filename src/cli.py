@@ -11,6 +11,7 @@ from .chat import run_chat
 from .eval_char_model import default_prompts, evaluate_char_model, run_qualitative_prompts
 from .ingest_chroma import ingest_messages
 from .parse_exports import parse_export, write_canonical_messages
+from .store_factory import make_vector_store
 from .train_char_model import train_char_model
 
 
@@ -101,10 +102,56 @@ def ingest(
         "--redact-type",
         help="Redaction type (repeatable): email|phone|address. Default: all.",
     ),
+    vector_backend: str = typer.Option(
+        "chroma",
+        "--vector-backend",
+        help="Vector backend: chroma|cassandra",
+    ),
+    cassandra_contact_point: List[str] = typer.Option(
+        [],
+        "--cassandra-contact-point",
+        help="Cassandra contact point (repeatable). Default: 127.0.0.1",
+    ),
+    cassandra_keyspace: str = typer.Option(
+        "jugemu",
+        "--cassandra-keyspace",
+        help="Cassandra keyspace (for --vector-backend cassandra)",
+    ),
+    cassandra_table: str = typer.Option(
+        "messages",
+        "--cassandra-table",
+        help="Cassandra table (for --vector-backend cassandra)",
+    ),
+    cassandra_secure_connect_bundle: Path | None = typer.Option(
+        None,
+        "--cassandra-secure-connect-bundle",
+        help="Astra secure connect bundle zip (optional)",
+    ),
+    cassandra_username: str | None = typer.Option(
+        None,
+        "--cassandra-username",
+        help="Cassandra/Astra username (optional)",
+    ),
+    cassandra_password: str | None = typer.Option(
+        None,
+        "--cassandra-password",
+        help="Cassandra/Astra password (optional)",
+    ),
 ):
     """Embed messages and store them in ChromaDB."""
     console = Console()
     console.print(Panel("Ingesting messages…", title="jugemu", border_style="cyan"))
+    store = make_vector_store(
+        backend=vector_backend,
+        persist_dir=persist,
+        collection_name=collection,
+        cassandra_contact_points=list(cassandra_contact_point) or None,
+        cassandra_keyspace=str(cassandra_keyspace),
+        cassandra_table=str(cassandra_table),
+        cassandra_secure_connect_bundle=cassandra_secure_connect_bundle,
+        cassandra_username=cassandra_username,
+        cassandra_password=cassandra_password,
+    )
     with console.status("Embedding + writing to ChromaDB…", spinner="dots"):
         added = ingest_messages(
             messages_path=messages,
@@ -121,6 +168,7 @@ def ingest(
             strip_emoji=strip_emoji,
             redact=redact,
             redact_types=list(redact_type),
+            store=store,
             console=console,
         )
     if added == 0:
