@@ -29,6 +29,12 @@ app = typer.Typer(
 )
 
 
+def _version_callback(value: bool | None) -> None:
+    if value:
+        typer.echo(f"jugemu {__version__}")
+        raise typer.Exit()
+
+
 @app.command()
 def schema(
     json_output: bool = typer.Option(False, "--json", help="Print JSON to stdout"),
@@ -56,16 +62,16 @@ def _global_options(
         "--config",
         help="Optional config.toml path (defaults to ./config.toml when present)",
     ),
-    version: bool = typer.Option(
-        False,
+    version: bool | None = typer.Option(
+        None,
         "--version",
+        callback=_version_callback,
         help="Print version and exit",
+        is_flag=True,
+        expose_value=False,
         is_eager=True,
     ),
 ):
-    if bool(version):
-        typer.echo(f"jugemu {__version__}")
-        raise typer.Exit()
     cfg = load_optional_config(config)
     ctx.obj = {"config": cfg}
 
