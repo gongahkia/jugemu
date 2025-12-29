@@ -23,6 +23,13 @@ def run_pipeline(
     persist_dir: Path,
     collection: str,
     embedding_model: str,
+    vector_backend: str = "chroma",
+    cassandra_contact_points: list[str] | None = None,
+    cassandra_keyspace: str = "jugemu",
+    cassandra_table: str = "messages",
+    cassandra_secure_connect_bundle: Path | None = None,
+    cassandra_username: str | None = None,
+    cassandra_password: str | None = None,
     train_out: Path,
     train_epochs: int = 5,
     smoke_prompt: str = "hello",
@@ -44,6 +51,8 @@ def run_pipeline(
         from .sample import sample_text
         from .train_char_model import train_char_model
 
+        from .store_factory import make_vector_store
+
         parse_fn = lambda p, f, m: parse_export(p, f, include_metadata=m)
         write_fn = write_canonical_messages
         ingest_fn = ingest_messages
@@ -63,11 +72,30 @@ def run_pipeline(
     lines = parse_fn(inp, fmt, bool(with_metadata))
     write_fn(lines, messages_out)
 
+    store = None
+    try:
+        from .store_factory import make_vector_store
+
+        store = make_vector_store(
+            backend=str(vector_backend),
+            persist_dir=Path(persist_dir),
+            collection_name=str(collection),
+            cassandra_contact_points=list(cassandra_contact_points) if cassandra_contact_points else None,
+            cassandra_keyspace=str(cassandra_keyspace),
+            cassandra_table=str(cassandra_table),
+            cassandra_secure_connect_bundle=cassandra_secure_connect_bundle,
+            cassandra_username=cassandra_username,
+            cassandra_password=cassandra_password,
+        )
+    except Exception:
+        store = None
+
     ingest_fn(
         messages_path=messages_out,
         persist_dir=persist_dir,
         collection_name=collection,
         embedding_model=embedding_model,
+        store=store,
     )
 
     ckpt = train_fn(
