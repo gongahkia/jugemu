@@ -152,6 +152,11 @@ def ingest(
         "--embedding-model",
         help="SentenceTransformers model for embeddings",
     ),
+    fast_embedding_model: bool = typer.Option(
+        False,
+        "--fast-embedding-model",
+        help="Use a smaller embedding model for speed (only affects the default embedding model).",
+    ),
     batch: int = typer.Option(256, "--batch", help="Embed+add batch size"),
     embed_batch_size: int | None = typer.Option(
         None,
@@ -292,6 +297,7 @@ def ingest(
             persist_dir=persist,
             collection_name=collection,
             embedding_model=embedding_model,
+            fast_embedding_model=fast_embedding_model,
             embed_batch_size=embed_batch_size,
             max_messages=max_messages,
             batch=batch,
