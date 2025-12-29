@@ -1295,6 +1295,11 @@ def chat(
         if isinstance(cfg_device, str) and str(device) == "auto":
             device = cfg_device
 
+    vb = str(vector_backend or "").strip().lower()
+    if vb not in {"chroma", "cassandra"}:
+        raise typer.BadParameter("--vector-backend must be one of: chroma|cassandra")
+    vector_backend = vb
+
     store = make_vector_store(
         backend=vector_backend,
         persist_dir=persist,
