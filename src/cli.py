@@ -250,6 +250,18 @@ def pipeline(
         if isinstance(cfg_embed, str):
             embedding_model = cfg_embed
 
+        cfg_vb = cfg.get("pipeline", "vector_backend")
+        if isinstance(cfg_vb, str) and str(vector_backend) == "chroma":
+            vector_backend = str(cfg_vb)
+
+        cfg_smoke_prompt = cfg.get("pipeline", "smoke_prompt")
+        if isinstance(cfg_smoke_prompt, str) and str(smoke_prompt) == "hello":
+            smoke_prompt = str(cfg_smoke_prompt)
+
+        cfg_smoke_max_new = cfg.get("pipeline", "smoke_max_new")
+        if isinstance(cfg_smoke_max_new, int) and int(smoke_max_new) == 120:
+            smoke_max_new = int(cfg_smoke_max_new)
+
     console = Console()
     console.print(Panel("Running pipeline…", title="jugemu", border_style="cyan"))
     with console.status("parse -> ingest -> train -> smoke…", spinner="dots"):
