@@ -42,3 +42,22 @@ no_print = true
     assert res.exit_code == 0
     assert captured_write["out"] == out_path
     assert captured_write["fmt"] == "json"
+
+
+def test_cli_export_retrieval_rejects_invalid_config_out_format(tmp_path: Path) -> None:
+    runner = CliRunner()
+
+    cfg_path = tmp_path / "config.toml"
+    cfg_path.write_text(
+        """
+[export_retrieval]
+out_format = "wat"
+no_print = true
+""".lstrip(),
+        encoding="utf-8",
+    )
+
+    out_path = tmp_path / "out.json"
+    res = runner.invoke(cli.app, ["--config", str(cfg_path), "export-retrieval", "--out", str(out_path)])
+    assert res.exit_code != 0
+    assert "config export_retrieval.out_format must be one of" in res.output
