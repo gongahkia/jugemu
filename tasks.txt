@@ -1,4 +1,3 @@
-Add validation for `pipeline --vector-backend` (reject invalid)
 Add validation for `chat --vector-backend` (reject invalid)
 Add validation for `chat --reply-strategy` (reject invalid)
 Add validation for `chat --prompt-template` (reject invalid)
