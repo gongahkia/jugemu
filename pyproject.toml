@@ -24,6 +24,7 @@ dependencies = [
 [project.scripts]
 jugemu-ingest = "src.entrypoints:ingest_main"
 jugemu-train = "src.entrypoints:train_main"
+jugemu-chat = "src.entrypoints:chat_main"
 
 [project.optional-dependencies]
 dev = ["pytest>=8.0.0"]
