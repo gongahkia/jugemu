@@ -542,6 +542,12 @@ def rebuild_store(
         if isinstance(cfg_batch, int) and int(batch) == 256:
             batch = int(cfg_batch)
 
+    if not bool(yes):
+        typer.confirm(
+            "This will DELETE and rebuild the vector store. Continue?",
+            abort=True,
+        )
+
     console = Console()
     console.print(Panel("Rebuilding vector store…", title="jugemu", border_style="cyan"))
 
