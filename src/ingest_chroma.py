@@ -12,7 +12,7 @@ from rich.console import Console
 from .embeddings import embed_texts
 from .normalize import normalize_message_line
 from .redact import redact_text
-from .vector_store import ChromaVectorStore
+from .vector_store import ChromaVectorStore, VectorStore
 
 
 _INLINE_META_RE = re.compile(
@@ -179,6 +179,7 @@ def ingest_messages(
     strip_emoji: bool = False,
     redact: bool = False,
     redact_types: List[str] | None = None,
+    store: VectorStore | None = None,
     console: Console | None = None,
 ) -> int:
     items = read_messages_lines(
@@ -189,7 +190,8 @@ def ingest_messages(
     if not items:
         raise ValueError("No messages found (expected one message per line)")
 
-    store = ChromaVectorStore(persist_dir=persist_dir, collection_name=collection_name)
+    if store is None:
+        store = ChromaVectorStore(persist_dir=persist_dir, collection_name=collection_name)
 
     chunks = build_chunks(items, chunking=str(chunking), window_size=int(window_size))
     if not chunks:
@@ -202,10 +204,13 @@ def ingest_messages(
         for (start_ln, end_ln, t) in chunks
     ]
 
-    existing = set()
+    existing: set[str] = set()
+    # For Chroma, we can cheaply list IDs for idempotent ingestion. For other backends,
+    # this is best-effort and defaults to "no existing IDs".
     try:
-        got = store._collection.get(include=[])
-        existing = set(got.get("ids", []))
+        if isinstance(store, ChromaVectorStore):
+            got = store._collection.get(include=[])
+            existing = set(got.get("ids", []))
     except Exception:
         existing = set()
 

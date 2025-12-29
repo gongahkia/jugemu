@@ -6,7 +6,7 @@ from typing import List
 from .chroma_store import Retrieved
 from .embeddings import embed_query
 from .rerank import rerank_retrieved
-from .vector_store import ChromaVectorStore
+from .vector_store import ChromaVectorStore, VectorStore
 
 
 def retrieve_similar(
@@ -15,11 +15,13 @@ def retrieve_similar(
     query: str,
     k: int,
     embedding_model: str,
+    store: VectorStore | None = None,
     rerank: bool = False,
     rerank_model: str = "cross-encoder/ms-marco-MiniLM-L-6-v2",
     rerank_top_k: int | None = None,
 ) -> List[Retrieved]:
-    store = ChromaVectorStore(persist_dir=Path(persist_dir), collection_name=collection_name)
+    if store is None:
+        store = ChromaVectorStore(persist_dir=Path(persist_dir), collection_name=collection_name)
     q = embed_query(query, embedding_model)
     initial_k = int(rerank_top_k) if rerank_top_k is not None else int(k)
     if initial_k < int(k):
