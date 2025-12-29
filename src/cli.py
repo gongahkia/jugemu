@@ -832,6 +832,11 @@ def export_retrieval(
         "--out-format",
         help="Output format when --out is set: json|jsonl.",
     ),
+    no_print: bool = typer.Option(
+        False,
+        "--no-print",
+        help="Suppress console output (useful for scripting).",
+    ),
     vector_backend: str = typer.Option(
         "chroma",
         "--vector-backend",
@@ -904,6 +909,22 @@ def export_retrieval(
         cassandra_username=cassandra_username,
         cassandra_password=cassandra_password,
     )
+
+    if bool(no_print):
+        results = dump_random_retrieval_samples(
+            messages_path=messages,
+            store=store,
+            embedding_model=embedding_model,
+            queries=list(query) if query else None,
+            samples=int(samples),
+            k=int(k),
+            seed=int(seed),
+            embed_batch_size=embed_batch_size,
+            console=None,
+        )
+        if out is not None:
+            write_retrieval_samples(results, out=Path(out), fmt=str(out_format))
+        return
 
     console = Console()
     console.print(Panel("Exporting retrieval samples…", title="jugemu", border_style="cyan"))
