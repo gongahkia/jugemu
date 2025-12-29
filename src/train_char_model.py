@@ -2,6 +2,7 @@ from __future__ import annotations
 
 import argparse
 import json
+import math
 import os
 import platform
 import random
@@ -132,6 +133,9 @@ def train_char_model(
     n_layers: int = 3,
     dropout: float = 0.1,
     lr: float = 3e-4,
+    lr_schedule: str = "none",
+    warmup_steps: int = 0,
+    grad_accum_steps: int = 1,
     steps_per_epoch: int = 500,
     seed: int = 1337,
     device: str = "auto",
@@ -215,6 +219,39 @@ def train_char_model(
     model = TinyCharTransformer(cfg).to(resolved_device)
     optimizer = torch.optim.AdamW(model.parameters(), lr=lr)
 
+    lr_schedule = str(lr_schedule or "none").strip().lower()
+    if lr_schedule not in {"none", "cosine"}:
+        raise ValueError("lr_schedule must be one of: none|cosine")
+    warmup_steps = int(warmup_steps)
+    if warmup_steps < 0:
+        warmup_steps = 0
+    grad_accum_steps = int(grad_accum_steps)
+    if grad_accum_steps < 1:
+        grad_accum_steps = 1
+
+    total_optimizer_steps = int(epochs) * int(steps_per_epoch)
+    if warmup_steps > total_optimizer_steps:
+        warmup_steps = total_optimizer_steps
+
+    def _lr_for_step(step_1b: int) -> float:
+        base = float(lr)
+        if lr_schedule == "none" or total_optimizer_steps <= 0:
+            return base
+        s = max(1, int(step_1b))
+        if warmup_steps > 0 and s <= warmup_steps:
+            return base * (s / warmup_steps)
+        denom = max(1, total_optimizer_steps - warmup_steps)
+        progress = (s - warmup_steps) / denom
+        if progress < 0.0:
+            progress = 0.0
+        if progress > 1.0:
+            progress = 1.0
+        return base * (0.5 * (1.0 + math.cos(math.pi * progress)))
+
+    def _set_optimizer_lr(new_lr: float) -> None:
+        for pg in optimizer.param_groups:
+            pg["lr"] = float(new_lr)
+
     meta = {
         "messages": str(messages_path),
         "num_chars": int(stream.shape[0]),
@@ -226,6 +263,10 @@ def train_char_model(
         "seed": int(seed),
         "redact": bool(redact),
         "redact_types": list(redact_types or []),
+        "lr": float(lr),
+        "lr_schedule": str(lr_schedule),
+        "warmup_steps": int(warmup_steps),
+        "grad_accum_steps": int(grad_accum_steps),
         "val_fraction": float(val_fraction),
         "val_steps": int(val_steps),
     }
@@ -251,6 +292,9 @@ def train_char_model(
             "n_layers": int(n_layers),
             "dropout": float(dropout),
             "lr": float(lr),
+            "lr_schedule": str(lr_schedule),
+            "warmup_steps": int(warmup_steps),
+            "grad_accum_steps": int(grad_accum_steps),
             "steps_per_epoch": int(steps_per_epoch),
             "seed": int(seed),
             "device": str(device),
@@ -281,23 +325,35 @@ def train_char_model(
             console.log(f"Resumed from {resume} at step={global_step}")
     model.train()
 
+    # Ensure LR is consistent on first optimizer step (esp. if warmup).
+    if total_optimizer_steps > 0:
+        _set_optimizer_lr(_lr_for_step(global_step + 1))
+
     for epoch in range(1, epochs + 1):
         pbar = tqdm(range(steps_per_epoch), desc=f"epoch {epoch}/{epochs}")
         running = 0.0
         for _ in pbar:
-            x_np, y_np = batchify_stream(train_stream, batch_size, seq_len, np_rng)
-            x = torch.from_numpy(x_np).to(resolved_device)
-            y = torch.from_numpy(y_np).to(resolved_device)
-
-            logits = model(x)
-            loss = F.cross_entropy(logits.view(-1, cfg.vocab_size), y.view(-1))
+            # LR is defined per optimizer step, not per micro-step.
+            if lr_schedule != "none":
+                _set_optimizer_lr(_lr_for_step(global_step + 1))
 
             optimizer.zero_grad(set_to_none=True)
-            loss.backward()
+            step_loss = 0.0
+            for _micro in range(grad_accum_steps):
+                x_np, y_np = batchify_stream(train_stream, batch_size, seq_len, np_rng)
+                x = torch.from_numpy(x_np).to(resolved_device)
+                y = torch.from_numpy(y_np).to(resolved_device)
+
+                logits = model(x)
+                loss = F.cross_entropy(logits.view(-1, cfg.vocab_size), y.view(-1))
+                step_loss += float(loss.item())
+
+                (loss / grad_accum_steps).backward()
+
             torch.nn.utils.clip_grad_norm_(model.parameters(), 1.0)
             optimizer.step()
 
-            running += loss.item()
+            running += step_loss
             global_step += 1
 
             if global_step % log_every == 0:
@@ -350,6 +406,24 @@ def main() -> None:
     ap.add_argument("--n-layers", type=int, default=3)
     ap.add_argument("--dropout", type=float, default=0.1)
     ap.add_argument("--lr", type=float, default=3e-4)
+    ap.add_argument(
+        "--lr-schedule",
+        default="none",
+        choices=["none", "cosine"],
+        help="Learning rate schedule (per optimizer step).",
+    )
+    ap.add_argument(
+        "--warmup-steps",
+        type=int,
+        default=0,
+        help="Warmup steps for LR schedule (optimizer steps).",
+    )
+    ap.add_argument(
+        "--grad-accum-steps",
+        type=int,
+        default=1,
+        help="Accumulate gradients over N micro-batches per optimizer step.",
+    )
     ap.add_argument("--steps-per-epoch", type=int, default=500)
     ap.add_argument("--resume", default=None, help="Resume from a checkpoint (.pt)")
     ap.add_argument("--seed", type=int, default=1337)
@@ -394,6 +468,9 @@ def main() -> None:
         n_layers=args.n_layers,
         dropout=args.dropout,
         lr=args.lr,
+        lr_schedule=str(args.lr_schedule),
+        warmup_steps=int(args.warmup_steps),
+        grad_accum_steps=int(args.grad_accum_steps),
         steps_per_epoch=args.steps_per_epoch,
         seed=args.seed,
         device=args.device,

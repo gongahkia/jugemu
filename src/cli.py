@@ -93,6 +93,21 @@ def train(
     n_layers: int = typer.Option(3, "--n-layers"),
     dropout: float = typer.Option(0.1, "--dropout"),
     lr: float = typer.Option(3e-4, "--lr"),
+    lr_schedule: str = typer.Option(
+        "none",
+        "--lr-schedule",
+        help="Learning rate schedule (per optimizer step): none|cosine",
+    ),
+    warmup_steps: int = typer.Option(
+        0,
+        "--warmup-steps",
+        help="Warmup steps for LR schedule (optimizer steps).",
+    ),
+    grad_accum_steps: int = typer.Option(
+        1,
+        "--grad-accum-steps",
+        help="Accumulate gradients over N micro-batches per optimizer step.",
+    ),
     steps_per_epoch: int = typer.Option(500, "--steps-per-epoch"),
     resume: Path | None = typer.Option(
         None,
@@ -142,6 +157,9 @@ def train(
         n_layers=n_layers,
         dropout=dropout,
         lr=lr,
+        lr_schedule=str(lr_schedule),
+        warmup_steps=int(warmup_steps),
+        grad_accum_steps=int(grad_accum_steps),
         steps_per_epoch=steps_per_epoch,
         seed=seed,
         device=device,
