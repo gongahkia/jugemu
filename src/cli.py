@@ -1056,8 +1056,13 @@ def export_retrieval(
             embed_batch_size = int(cfg_ebs)
 
         cfg_out_fmt = cfg.get("export_retrieval", "out_format")
-        if isinstance(cfg_out_fmt, str) and str(out_format) == "jsonl":
-            out_format = str(cfg_out_fmt)
+        if str(out_format) == "jsonl" and cfg_out_fmt is not None:
+            if not isinstance(cfg_out_fmt, str):
+                raise typer.BadParameter("config export_retrieval.out_format must be one of: json|jsonl")
+            cfg_out_fmt2 = str(cfg_out_fmt).strip().lower()
+            if cfg_out_fmt2 not in {"json", "jsonl"}:
+                raise typer.BadParameter("config export_retrieval.out_format must be one of: json|jsonl")
+            out_format = cfg_out_fmt2
 
         cfg_no_print = cfg.get("export_retrieval", "no_print")
         if isinstance(cfg_no_print, bool) and bool(no_print) is False:
