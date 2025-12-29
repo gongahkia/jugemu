@@ -12,7 +12,7 @@ from rich.console import Console
 from .embeddings import embed_texts
 from .normalize import normalize_message_line
 from .redact import redact_text
-from .vector_store_schema import VECTOR_STORE_SCHEMA_VERSION, ensure_schema_version
+from .vector_store_schema import VECTOR_STORE_SCHEMA_VERSION, ensure_schema_version, get_schema_version
 from .vector_store import ChromaVectorStore, VectorStore
 
 
@@ -187,6 +187,7 @@ def ingest_messages(
     strip_emoji: bool = False,
     redact: bool = False,
     redact_types: List[str] | None = None,
+    dry_run: bool = False,
     store: VectorStore | None = None,
     console: Console | None = None,
 ) -> int:
@@ -207,7 +208,15 @@ def ingest_messages(
     if store is None:
         store = ChromaVectorStore(persist_dir=persist_dir, collection_name=collection_name)
 
-    ensure_schema_version(store, expected=VECTOR_STORE_SCHEMA_VERSION)
+    if dry_run:
+        cur = get_schema_version(store)
+        if cur is not None and int(cur) != int(VECTOR_STORE_SCHEMA_VERSION):
+            raise ValueError(
+                f"Vector store schema version mismatch (found {cur}, expected {VECTOR_STORE_SCHEMA_VERSION}). "
+                "Run rebuild-store to migrate."
+            )
+    else:
+        ensure_schema_version(store, expected=VECTOR_STORE_SCHEMA_VERSION)
 
     chunks = build_chunks(items, chunking=str(chunking), window_size=int(window_size))
     if not chunks:
@@ -266,6 +275,37 @@ def ingest_messages(
         for (i, t, (s, e), ch, keep) in zip(ids, texts, bounds, content_hashes, keep_mask)
         if keep and i not in existing
     ]
+
+    if dry_run:
+        total_chunks = len(texts)
+        total_kept = sum(1 for k_ in keep_mask if k_)
+        would_add = len(new_pairs)
+        skipped_existing = sum(1 for i_ in ids if i_ in existing)
+        skipped_dedupe = total_chunks - total_kept
+        skipped_other = total_kept - would_add - skipped_existing
+
+        if console is not None:
+            console.print(f"Messages: {len(items)}")
+            console.print(f"Chunks: {total_chunks} (mode={mode_norm})")
+            console.print(f"Keep after dedupe: {total_kept}")
+            console.print(f"Skip by dedupe: {skipped_dedupe}")
+            console.print(f"Skip existing IDs: {skipped_existing}")
+            if skipped_other:
+                console.print(f"Skip other: {skipped_other}")
+            if total_chunks:
+                dedupe_rate = 1.0 - (float(would_add) / float(total_chunks))
+                console.print(f"Would add: {would_add} (dedupe rate {dedupe_rate:.1%})")
+            else:
+                console.print(f"Would add: {would_add}")
+
+            examples = new_pairs[:5]
+            if examples:
+                console.print("Examples (first 5):")
+                for _id, txt, s, e in examples:
+                    bounds_str = f"{s}" if int(s) == int(e) else f"{s}-{e}"
+                    console.print(f"- {bounds_str}: {txt}")
+
+        return would_add
     if not new_pairs:
         return 0
 
