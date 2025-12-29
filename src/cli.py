@@ -215,6 +215,11 @@ def ingest(
         "--redact-type",
         help="Redaction type (repeatable): email|phone|address. Default: all.",
     ),
+    dry_run: bool = typer.Option(
+        False,
+        "--dry-run",
+        help="Show counts/dedupe/examples without embedding or writing to the DB.",
+    ),
     vector_backend: str = typer.Option(
         "chroma",
         "--vector-backend",
@@ -312,10 +317,13 @@ def ingest(
             strip_emoji=strip_emoji,
             redact=redact,
             redact_types=list(redact_type),
+            dry_run=bool(dry_run),
             store=store,
             console=console,
         )
-    if added == 0:
+    if bool(dry_run):
+        console.print(f"Dry-run: would ingest {added} messages into collection '{collection}'.")
+    elif added == 0:
         console.print("Nothing new to ingest.")
     else:
         console.print(f"Ingested {added} new messages into collection '{collection}'.")
