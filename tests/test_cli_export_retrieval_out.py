@@ -26,3 +26,12 @@ def test_cli_export_retrieval_writes_out_jsonl(tmp_path: Path, monkeypatch):
 
     lines = out.read_text(encoding="utf-8").splitlines()
     assert json.loads(lines[0])["query"] == "q"
+
+
+def test_cli_export_retrieval_rejects_invalid_out_format(tmp_path: Path) -> None:
+    runner = CliRunner()
+
+    out = tmp_path / "out.jsonl"
+    res = runner.invoke(cli.app, ["export-retrieval", "--out", str(out), "--out-format", "wat"])
+    assert res.exit_code != 0
+    assert "--out-format must be one of" in res.output
