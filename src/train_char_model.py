@@ -63,6 +63,33 @@ def _write_run_json(out_dir: Path, run: Dict[str, Any]) -> None:
     (out_dir / "run.json").write_text(json.dumps(run, indent=2), encoding="utf-8")
 
 
+@torch.no_grad()
+def _estimate_loss(
+    *,
+    model: TinyCharTransformer,
+    cfg: TinyConfig,
+    stream: np.ndarray,
+    batch_size: int,
+    seq_len: int,
+    rng: np.random.Generator,
+    steps: int,
+    device: str,
+) -> float:
+    if steps <= 0:
+        return float("nan")
+    model.eval()
+    losses: list[float] = []
+    for _ in range(steps):
+        x_np, y_np = batchify_stream(stream, batch_size, seq_len, rng)
+        x = torch.from_numpy(x_np).to(device)
+        y = torch.from_numpy(y_np).to(device)
+        logits = model(x)
+        loss = F.cross_entropy(logits.view(-1, cfg.vocab_size), y.view(-1))
+        losses.append(float(loss.item()))
+    model.train()
+    return float(np.mean(losses)) if losses else float("nan")
+
+
 def save_checkpoint(
     out_dir: Path,
     step: int,
@@ -106,6 +133,8 @@ def train_char_model(
     training_mode: str = "stream",
     redact: bool = False,
     redact_types: list[str] | None = None,
+    val_fraction: float = 0.05,
+    val_steps: int = 50,
 ) -> Path:
     if training_mode == "pairs":
         lines = load_messages_lines(messages_path)
@@ -118,6 +147,24 @@ def train_char_model(
             raw = "\n".join(redact_text(ln, types=redact_types) for ln in raw.split("\n"))
     vocab = build_vocab(raw)
     stream = make_stream_ids(raw, vocab)
+
+    # Train/val split (tail slice) on a single stream.
+    val_fraction = float(val_fraction)
+    if val_fraction < 0.0:
+        val_fraction = 0.0
+    if val_fraction > 0.5:
+        val_fraction = 0.5
+    val_chars = int(len(stream) * val_fraction)
+    min_needed = seq_len + 2
+    if val_chars < min_needed:
+        val_chars = 0
+
+    if val_chars > 0:
+        train_stream = stream[:-val_chars]
+        val_stream = stream[-val_chars:]
+    else:
+        train_stream = stream
+        val_stream = None
 
     resolved_device = device
     if resolved_device == "auto":
@@ -139,6 +186,7 @@ def train_char_model(
 
     _seed_everything(seed)
     np_rng = np.random.default_rng(seed)
+    val_rng = np.random.default_rng(seed + 1)
 
     model = TinyCharTransformer(cfg).to(resolved_device)
     optimizer = torch.optim.AdamW(model.parameters(), lr=lr)
@@ -146,12 +194,16 @@ def train_char_model(
     meta = {
         "messages": str(messages_path),
         "num_chars": int(stream.shape[0]),
+        "train_chars": int(train_stream.shape[0]),
+        "val_chars": int(val_stream.shape[0]) if val_stream is not None else 0,
         "vocab_size": vocab.size,
         "cfg": asdict(cfg),
         "training_mode": training_mode,
         "seed": int(seed),
         "redact": bool(redact),
         "redact_types": list(redact_types or []),
+        "val_fraction": float(val_fraction),
+        "val_steps": int(val_steps),
     }
     out_dir.mkdir(parents=True, exist_ok=True)
     (out_dir / "meta.json").write_text(json.dumps(meta, indent=2), encoding="utf-8")
@@ -181,6 +233,8 @@ def train_char_model(
             "training_mode": str(training_mode),
             "redact": bool(redact),
             "redact_types": list(redact_types or []),
+            "val_fraction": float(val_fraction),
+            "val_steps": int(val_steps),
         },
     }
     _write_run_json(out_dir, run)
@@ -192,7 +246,7 @@ def train_char_model(
         pbar = tqdm(range(steps_per_epoch), desc=f"epoch {epoch}/{epochs}")
         running = 0.0
         for _ in pbar:
-            x_np, y_np = batchify_stream(stream, batch_size, seq_len, np_rng)
+            x_np, y_np = batchify_stream(train_stream, batch_size, seq_len, np_rng)
             x = torch.from_numpy(x_np).to(resolved_device)
             y = torch.from_numpy(y_np).to(resolved_device)
 
@@ -221,8 +275,26 @@ def train_char_model(
             optimizer=optimizer,
         )
 
+        val_loss = None
+        if val_stream is not None and int(val_steps) > 0:
+            val_loss = _estimate_loss(
+                model=model,
+                cfg=cfg,
+                stream=val_stream,
+                batch_size=batch_size,
+                seq_len=seq_len,
+                rng=val_rng,
+                steps=int(val_steps),
+                device=resolved_device,
+            )
+
         if console is not None:
-            console.log(f"epoch {epoch}/{epochs} complete; latest step={global_step}")
+            if val_loss is not None:
+                console.log(
+                    f"epoch {epoch}/{epochs} complete; latest step={global_step}; val_loss={val_loss:.4f}"
+                )
+            else:
+                console.log(f"epoch {epoch}/{epochs} complete; latest step={global_step}")
 
     return out_dir / "latest.pt"
 
@@ -256,6 +328,18 @@ def main() -> None:
         default=[],
         help="Redaction type (repeatable): email|phone|address. Default: all.",
     )
+    ap.add_argument(
+        "--val-fraction",
+        type=float,
+        default=0.05,
+        help="Fraction of the corpus reserved for validation (tail slice).",
+    )
+    ap.add_argument(
+        "--val-steps",
+        type=int,
+        default=50,
+        help="How many random validation batches to average per epoch.",
+    )
     args = ap.parse_args()
 
     console = Console()
@@ -278,6 +362,8 @@ def main() -> None:
         training_mode=args.training_mode,
         redact=bool(args.redact),
         redact_types=list(args.redact_type or []),
+        val_fraction=float(args.val_fraction),
+        val_steps=int(args.val_steps),
     )
     console.print(f"Done. Latest checkpoint: {latest}")
 

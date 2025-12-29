@@ -92,6 +92,16 @@ def train(
         "--redact-type",
         help="Redaction type (repeatable): email|phone|address. Default: all.",
     ),
+    val_fraction: float = typer.Option(
+        0.05,
+        "--val-fraction",
+        help="Fraction of the corpus reserved for validation (tail slice).",
+    ),
+    val_steps: int = typer.Option(
+        50,
+        "--val-steps",
+        help="How many random validation batches to average per epoch.",
+    ),
 ):
     """Train the tiny character model and write checkpoints."""
     console = Console()
@@ -115,6 +125,8 @@ def train(
         training_mode=training_mode,
         redact=redact,
         redact_types=list(redact_type),
+        val_fraction=float(val_fraction),
+        val_steps=int(val_steps),
     )
     console.print(f"Done. Latest checkpoint: {latest}")
 
