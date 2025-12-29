@@ -46,6 +46,7 @@ def dump_random_retrieval_samples(
     messages_path: Path,
     store: VectorStore,
     embedding_model: str,
+    queries: list[str] | None = None,
     samples: int = 10,
     k: int = 5,
     seed: int | None = None,
@@ -62,14 +63,20 @@ def dump_random_retrieval_samples(
     if not texts:
         raise ValueError("No messages found (expected one message per line)")
 
-    n = int(samples)
-    if n < 0:
-        n = 0
-    if n == 0:
-        return []
+    if queries is not None and len(queries) > 0:
+        picked = [str(q) for q in queries if str(q).strip()]
+    else:
+        n = int(samples)
+        if n < 0:
+            n = 0
+        if n == 0:
+            return []
 
-    rng = random.Random(seed)
-    picked = texts if n >= len(texts) else rng.sample(texts, k=n)
+        rng = random.Random(seed)
+        picked = texts if n >= len(texts) else rng.sample(texts, k=n)
+
+    if not picked:
+        return []
 
     embs = embedder(picked, str(embedding_model), embed_batch_size)
     if len(embs) != len(picked):
