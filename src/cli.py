@@ -18,7 +18,7 @@ from .pipeline import run_pipeline
 from .browse_stats import browse_report, count_chars, count_tokens, top_items
 from .store_factory import make_vector_store
 from .train_char_model import train_char_model
-from .vector_store_schema import reset_vector_store
+from .vector_store_schema import reset_vector_store, schema_info
 
 
 app = typer.Typer(
@@ -26,6 +26,16 @@ app = typer.Typer(
     rich_markup_mode="rich",
     add_completion=False,
 )
+
+
+@app.command()
+def schema() -> None:
+    """Print the current vector store schema version and backend info."""
+    info = schema_info()
+    typer.echo(f"schema_version: {info['schema_version']}")
+    typer.echo(f"vector_backends: {', '.join(info['vector_backends'])}")
+    typer.echo(f"chroma.schema_file: {info['chroma']['schema_file']}")
+    typer.echo(f"cassandra.meta_key: {info['cassandra']['meta_key']}")
 
 
 @app.callback()
