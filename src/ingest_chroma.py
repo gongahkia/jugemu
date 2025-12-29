@@ -12,6 +12,7 @@ from rich.console import Console
 from .embeddings import embed_texts
 from .normalize import normalize_message_line
 from .redact import redact_text
+from .vector_store_schema import VECTOR_STORE_SCHEMA_VERSION, ensure_schema_version
 from .vector_store import ChromaVectorStore, VectorStore
 
 
@@ -205,6 +206,8 @@ def ingest_messages(
 
     if store is None:
         store = ChromaVectorStore(persist_dir=persist_dir, collection_name=collection_name)
+
+    ensure_schema_version(store, expected=VECTOR_STORE_SCHEMA_VERSION)
 
     chunks = build_chunks(items, chunking=str(chunking), window_size=int(window_size))
     if not chunks:
