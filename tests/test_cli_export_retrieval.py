@@ -48,6 +48,27 @@ def test_cli_export_retrieval_json_outputs_parseable_json(monkeypatch):
     assert "Exporting retrieval samples" not in res.output
 
 
+def test_cli_export_retrieval_json_pretty_outputs_parseable_json(monkeypatch):
+    runner = CliRunner()
+
+    def _fake_make_vector_store(**kwargs):  # type: ignore[no-untyped-def]
+        return object()
+
+    def _fake_dump_random_retrieval_samples(**kwargs):  # type: ignore[no-untyped-def]
+        return [{"query": "q", "results": []}]
+
+    monkeypatch.setattr(cli, "make_vector_store", _fake_make_vector_store)
+    monkeypatch.setattr(cli, "dump_random_retrieval_samples", _fake_dump_random_retrieval_samples)
+
+    res = runner.invoke(cli.app, ["export-retrieval", "--json-pretty"])
+    assert res.exit_code == 0
+    assert res.output.endswith("\n")
+    assert not res.output.endswith("\n\n")
+    payload = json.loads(res.output)
+    assert payload[0]["query"] == "q"
+    assert "\n  {" in res.output
+
+
 def test_cli_export_retrieval_fail_on_empty_exits_non_zero(monkeypatch):
     runner = CliRunner()
 
