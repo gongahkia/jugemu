@@ -74,6 +74,7 @@ class CassandraVectorStore:
     # Schema management
     create_schema: bool = True
     index_name: str | None = None
+    meta_table: str = "jugemu_meta"
 
     # For unit tests / dependency injection
     session: Any | None = None
@@ -150,6 +151,20 @@ class CassandraVectorStore:
             f"WITH OPTIONS = {{'similarity_function': '{sim}'}}"
         )
 
+    def _cql_create_meta_table(self) -> str:
+        return (
+            f"CREATE TABLE IF NOT EXISTS {self.keyspace}.{self.meta_table} (\n"
+            "  key text PRIMARY KEY,\n"
+            "  value text\n"
+            ")"
+        )
+
+    def _cql_upsert_meta(self) -> str:
+        return f"INSERT INTO {self.keyspace}.{self.meta_table} (key, value) VALUES (?, ?)"
+
+    def _cql_select_meta(self) -> str:
+        return f"SELECT value FROM {self.keyspace}.{self.meta_table} WHERE key = ? LIMIT 1"
+
     def _cql_insert(self) -> str:
         return f"INSERT INTO {self.keyspace}.{self.table} (id, text, embedding, metadata_json) VALUES (?, ?, ?, ?)"
 
@@ -188,11 +203,45 @@ class CassandraVectorStore:
             pass
         session.execute(self._cql_create_table())
         try:
+            session.execute(self._cql_create_meta_table())
+        except Exception:
+            pass
+        try:
             session.execute(self._cql_create_index())
         except Exception:
             # Index syntax varies; table creation is the critical part.
             pass
         self._schema_ensured = True
+
+    def get_meta(self, key: str) -> str | None:
+        session = self._require_session()
+        cql = self._cql_select_meta()
+        try:
+            prepared = session.prepare(cql)
+        except Exception:
+            prepared = cql
+
+        try:
+            rows = session.execute(prepared, (str(key),))
+        except Exception:
+            return None
+
+        for row in rows:
+            val = getattr(row, "value", None) if not isinstance(row, dict) else row.get("value")
+            if val is None:
+                continue
+            return str(val)
+        return None
+
+    def set_meta(self, key: str, value: str) -> None:
+        self._ensure_schema()
+        session = self._require_session()
+        cql = self._cql_upsert_meta()
+        try:
+            prepared = session.prepare(cql)
+        except Exception:
+            prepared = cql
+        session.execute(prepared, (str(key), str(value)))
 
     def add(
         self,
