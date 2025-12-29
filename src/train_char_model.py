@@ -156,6 +156,22 @@ def train_char_model(
     vocab = build_vocab(raw)
     stream = make_stream_ids(raw, vocab)
 
+    # Small-corpus warning + auto-reduce seq_len to avoid sampling errors / memorization.
+    # Heuristic: if corpus is under 50k chars, warn; if seq_len is too large for data, reduce it.
+    if int(stream.shape[0]) < 50_000 and console is not None:
+        console.log(
+            f"Warning: small corpus ({int(stream.shape[0])} chars). Model may overfit / memorize."
+        )
+
+    # Ensure seq_len fits comfortably into the stream for batch sampling.
+    max_reasonable = max(16, int(stream.shape[0] // 8))
+    if seq_len > max_reasonable:
+        new_seq_len = max(16, min(seq_len, max_reasonable))
+        if new_seq_len != seq_len:
+            if console is not None:
+                console.log(f"Auto-reducing seq_len from {seq_len} -> {new_seq_len} (corpus too small)")
+            seq_len = new_seq_len
+
     # Train/val split (tail slice) on a single stream.
     val_fraction = float(val_fraction)
     if val_fraction < 0.0:
