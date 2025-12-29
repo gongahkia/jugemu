@@ -1,3 +1,2 @@
-Add `jugemu browse` config key validation (reject invalid mode)
 Add `jugemu export-retrieval` config key validation (reject invalid out_format)
 
