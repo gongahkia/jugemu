@@ -97,6 +97,7 @@ def browse(
     mode: str = typer.Option("both", "--mode", help="chars|tokens|both"),
     min_count: int = typer.Option(1, "--min-count", help="Only show items with count >= this"),
     json_output: bool = typer.Option(False, "--json", help="Print JSON report to stdout"),
+    json_pretty: bool = typer.Option(False, "--json-pretty", help="Print pretty JSON report to stdout"),
     out: Path | None = typer.Option(None, "--out", help="Write JSON report to this path"),
     no_header: bool = typer.Option(False, "--no-header", help="Suppress Rich panels and section labels"),
 ):
@@ -146,6 +147,9 @@ def browse(
     report = browse_report(lines, mode=m, top=n, min_count=int(min_count))
     if out is not None:
         write_browse_report(report, out=Path(out))
+    if bool(json_pretty):
+        typer.echo(json.dumps(report, ensure_ascii=False, indent=2) + "\n", nl=False)
+        return
     if bool(json_output):
         typer.echo(json.dumps(report, ensure_ascii=False))
         return
