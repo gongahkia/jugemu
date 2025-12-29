@@ -267,6 +267,11 @@ def pipeline(
         if isinstance(cfg_smoke_max_new, int) and int(smoke_max_new) == 120:
             smoke_max_new = int(cfg_smoke_max_new)
 
+    vb = str(vector_backend or "").strip().lower()
+    if vb not in {"chroma", "cassandra"}:
+        raise typer.BadParameter("--vector-backend must be one of: chroma|cassandra")
+    vector_backend = vb
+
     console = Console()
     console.print(Panel("Running pipeline…", title="jugemu", border_style="cyan"))
     with console.status("parse -> ingest -> train -> smoke…", spinner="dots"):
