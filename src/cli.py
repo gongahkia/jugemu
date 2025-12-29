@@ -51,6 +51,16 @@ def ingest(
         help="SentenceTransformers model for embeddings",
     ),
     batch: int = typer.Option(256, "--batch", help="Embed+add batch size"),
+    collapse_whitespace: bool = typer.Option(
+        False,
+        "--collapse-whitespace",
+        help="Collapse repeated spaces/tabs in each message before embedding.",
+    ),
+    strip_emoji: bool = typer.Option(
+        False,
+        "--strip-emoji",
+        help="Remove emoji characters from messages before embedding.",
+    ),
     redact: bool = typer.Option(
         False,
         "--redact",
@@ -72,6 +82,8 @@ def ingest(
             collection_name=collection,
             embedding_model=embedding_model,
             batch=batch,
+            collapse_whitespace=collapse_whitespace,
+            strip_emoji=strip_emoji,
             redact=redact,
             redact_types=list(redact_type),
             console=console,
@@ -123,6 +135,16 @@ def train(
         "--training-mode",
         help="stream (raw text) or pairs (USER/YOU from consecutive lines)",
     ),
+    collapse_whitespace: bool = typer.Option(
+        False,
+        "--collapse-whitespace",
+        help="Collapse repeated spaces/tabs (preserves newlines).",
+    ),
+    strip_emoji: bool = typer.Option(
+        False,
+        "--strip-emoji",
+        help="Remove emoji characters from the training text.",
+    ),
     redact: bool = typer.Option(
         False,
         "--redact",
@@ -167,6 +189,8 @@ def train(
         log_every=log_every,
         console=console,
         training_mode=training_mode,
+        collapse_whitespace=collapse_whitespace,
+        strip_emoji=strip_emoji,
         redact=redact,
         redact_types=list(redact_type),
         val_fraction=float(val_fraction),

@@ -6,6 +6,8 @@ from typing import Dict, List, Tuple
 
 import numpy as np
 
+from .normalize import normalize_text
+
 
 @dataclass(frozen=True)
 class CharVocab:
@@ -23,16 +25,33 @@ class CharVocab:
         return "".join(self.itos[i] for i in ids)
 
 
-def load_messages_text(path: str | Path) -> str:
+def load_messages_text(
+    path: str | Path,
+    *,
+    collapse_whitespace: bool = False,
+    strip_emoji: bool = False,
+) -> str:
     p = Path(path)
     raw = p.read_text(encoding="utf-8", errors="replace")
     # Normalize newlines and keep them as signal.
-    raw = raw.replace("\r\n", "\n").replace("\r", "\n")
-    return raw
+    return normalize_text(
+        raw,
+        collapse_whitespace=bool(collapse_whitespace),
+        strip_emoji_chars=bool(strip_emoji),
+    )
 
 
-def load_messages_lines(path: str | Path) -> List[str]:
-    raw = load_messages_text(path)
+def load_messages_lines(
+    path: str | Path,
+    *,
+    collapse_whitespace: bool = False,
+    strip_emoji: bool = False,
+) -> List[str]:
+    raw = load_messages_text(
+        path,
+        collapse_whitespace=bool(collapse_whitespace),
+        strip_emoji=bool(strip_emoji),
+    )
     out: List[str] = []
     for ln in raw.split("\n"):
         msg = ln.strip()

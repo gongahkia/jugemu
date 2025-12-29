@@ -142,6 +142,8 @@ def train_char_model(
     log_every: int = 50,
     console: Console | None = None,
     training_mode: str = "stream",
+    collapse_whitespace: bool = False,
+    strip_emoji: bool = False,
     redact: bool = False,
     redact_types: list[str] | None = None,
     val_fraction: float = 0.05,
@@ -149,12 +151,20 @@ def train_char_model(
     resume: Path | None = None,
 ) -> Path:
     if training_mode == "pairs":
-        lines = load_messages_lines(messages_path)
+        lines = load_messages_lines(
+            messages_path,
+            collapse_whitespace=bool(collapse_whitespace),
+            strip_emoji=bool(strip_emoji),
+        )
         if redact:
             lines = [redact_text(ln, types=redact_types) for ln in lines]
         raw = build_pairs_corpus(lines)
     else:
-        raw = load_messages_text(messages_path)
+        raw = load_messages_text(
+            messages_path,
+            collapse_whitespace=bool(collapse_whitespace),
+            strip_emoji=bool(strip_emoji),
+        )
         if redact:
             raw = "\n".join(redact_text(ln, types=redact_types) for ln in raw.split("\n"))
     vocab = build_vocab(raw)
@@ -260,6 +270,8 @@ def train_char_model(
         "vocab_size": vocab.size,
         "cfg": asdict(cfg),
         "training_mode": training_mode,
+        "collapse_whitespace": bool(collapse_whitespace),
+        "strip_emoji": bool(strip_emoji),
         "seed": int(seed),
         "redact": bool(redact),
         "redact_types": list(redact_types or []),
@@ -299,6 +311,8 @@ def train_char_model(
             "seed": int(seed),
             "device": str(device),
             "training_mode": str(training_mode),
+            "collapse_whitespace": bool(collapse_whitespace),
+            "strip_emoji": bool(strip_emoji),
             "redact": bool(redact),
             "redact_types": list(redact_types or []),
             "val_fraction": float(val_fraction),
@@ -435,6 +449,16 @@ def main() -> None:
         choices=["stream", "pairs"],
         help="stream: train on raw text stream; pairs: train on USER/YOU pairs from consecutive lines",
     )
+    ap.add_argument(
+        "--collapse-whitespace",
+        action="store_true",
+        help="Collapse repeated spaces/tabs (preserves newlines).",
+    )
+    ap.add_argument(
+        "--strip-emoji",
+        action="store_true",
+        help="Remove emoji characters from the training text.",
+    )
     ap.add_argument("--redact", action="store_true", help="Redact emails/phones/addresses before training")
     ap.add_argument(
         "--redact-type",
@@ -477,6 +501,8 @@ def main() -> None:
         log_every=args.log_every,
         console=console,
         training_mode=args.training_mode,
+        collapse_whitespace=bool(args.collapse_whitespace),
+        strip_emoji=bool(args.strip_emoji),
         redact=bool(args.redact),
         redact_types=list(args.redact_type or []),
         val_fraction=float(args.val_fraction),

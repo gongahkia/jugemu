@@ -1,4 +1,3 @@
-Add a message normalization pipeline: newline normalization, repeated whitespace collapsing option, emoji handling toggle
 Add conversation-aware formatting option: include timestamps/speaker tags in the training text when available
 Add retrieval prompt templates: minimal, conversation-scaffold, and "few-shot from retrieved" variants
 Add retrieve-then-rerank option: initial vector top_k then rerank with a lightweight cross-encoder (optional dependency)

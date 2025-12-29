@@ -8,17 +8,27 @@ from typing import List, Tuple
 from rich.console import Console
 
 from .embeddings import embed_texts
+from .normalize import normalize_message_line
 from .redact import redact_text
 from .vector_store import ChromaVectorStore
 
 
-def read_messages_lines(path: Path) -> List[Tuple[int, str]]:
+def read_messages_lines(
+    path: Path,
+    *,
+    collapse_whitespace: bool = False,
+    strip_emoji: bool = False,
+) -> List[Tuple[int, str]]:
     raw = path.read_text(encoding="utf-8", errors="replace")
     raw = raw.replace("\r\n", "\n").replace("\r", "\n")
     # Each non-empty line = one message. Keep short lines too.
     out: List[Tuple[int, str]] = []
     for i, ln in enumerate(raw.split("\n"), start=1):
-        msg = ln.strip()
+        msg = normalize_message_line(
+            ln,
+            collapse_whitespace=bool(collapse_whitespace),
+            strip_emoji_chars=bool(strip_emoji),
+        )
         if msg:
             out.append((i, msg))
     return out
@@ -39,11 +49,17 @@ def ingest_messages(
     collection_name: str = "messages",
     embedding_model: str = "sentence-transformers/all-MiniLM-L6-v2",
     batch: int = 256,
+    collapse_whitespace: bool = False,
+    strip_emoji: bool = False,
     redact: bool = False,
     redact_types: List[str] | None = None,
     console: Console | None = None,
 ) -> int:
-    items = read_messages_lines(messages_path)
+    items = read_messages_lines(
+        messages_path,
+        collapse_whitespace=bool(collapse_whitespace),
+        strip_emoji=bool(strip_emoji),
+    )
     if not items:
         raise ValueError("No messages found (expected one message per line)")
 
@@ -89,6 +105,16 @@ def main() -> None:
     ap.add_argument("--collection", default="messages")
     ap.add_argument("--embedding-model", default="sentence-transformers/all-MiniLM-L6-v2")
     ap.add_argument("--batch", type=int, default=256)
+    ap.add_argument(
+        "--collapse-whitespace",
+        action="store_true",
+        help="Collapse repeated spaces/tabs in each message before embedding.",
+    )
+    ap.add_argument(
+        "--strip-emoji",
+        action="store_true",
+        help="Remove emoji characters from messages before embedding.",
+    )
     ap.add_argument("--redact", action="store_true", help="Redact emails/phones/addresses before embedding/storing")
     ap.add_argument(
         "--redact-type",
@@ -106,6 +132,8 @@ def main() -> None:
             collection_name=args.collection,
             embedding_model=args.embedding_model,
             batch=args.batch,
+            collapse_whitespace=bool(args.collapse_whitespace),
+            strip_emoji=bool(args.strip_emoji),
             redact=bool(args.redact),
             redact_types=list(args.redact_type or []),
             console=console,
