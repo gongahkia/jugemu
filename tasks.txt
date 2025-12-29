@@ -1,4 +1,3 @@
-Implement Cassandra/Astra backend using DataStax clients, including schema/table creation and vector similarity queries
 Add backend selection flag: `--vector-backend chroma|cassandra` and shared config loading
 Document Chroma behavior that duplicate IDs are ignored and make ingestion idempotent by design (aligns with Chroma docs)
 Add a config file (`config.toml`) to avoid long CLI flags and keep runs reproducible
