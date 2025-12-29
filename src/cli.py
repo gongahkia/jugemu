@@ -10,7 +10,7 @@ from rich.panel import Panel
 
 from .chat import run_chat
 from .eval_char_model import default_prompts, evaluate_char_model, run_qualitative_prompts
-from .export_retrieval import dump_random_retrieval_samples, write_retrieval_samples
+from .export_retrieval import dump_random_retrieval_samples, format_retrieval_samples_json, write_retrieval_samples
 from .ingest_chroma import ingest_messages
 from .parse_exports import parse_export, write_canonical_messages
 from .config import JugemuConfig, load_optional_config
@@ -942,6 +942,11 @@ def export_retrieval(
         "--out-format",
         help="Output format when --out is set: json|jsonl.",
     ),
+    json_output: bool = typer.Option(
+        False,
+        "--json",
+        help="Print machine-readable JSON to stdout",
+    ),
     no_print: bool = typer.Option(
         False,
         "--no-print",
@@ -1043,6 +1048,23 @@ def export_retrieval(
         cassandra_username=cassandra_username,
         cassandra_password=cassandra_password,
     )
+
+    if bool(json_output):
+        results = dump_random_retrieval_samples(
+            messages_path=messages,
+            store=store,
+            embedding_model=embedding_model,
+            queries=list(query) if query else None,
+            samples=int(samples),
+            k=int(k),
+            seed=int(seed),
+            embed_batch_size=embed_batch_size,
+            console=None,
+        )
+        if out is not None:
+            write_retrieval_samples(results, out=Path(out), fmt=str(out_format))
+        typer.echo(format_retrieval_samples_json(results))
+        return
 
     if bool(no_print):
         results = dump_random_retrieval_samples(
