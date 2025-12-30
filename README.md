@@ -2,109 +2,11 @@
 
 A tiny message LLM.
 
+Tiny, dumb, character-level language model trained only on your message corpus 
+
+...
+
 This is an intentionally **tiny and stupid** character-level language model trained on *your* message corpus, plus a **ChromaDB** vector store for retrieval.
-
-## Setup
-
-```bash
-python3.12 -m venv .venv
-source .venv/bin/activate
-
-# Recommended (installs the `jugemu` CLI entrypoint)
-pip install -e '.[dev]'
-
-# Alternative (if you prefer requirements.txt)
-# pip install -r requirements.txt
-```
-
-If your default `python3` is 3.14+, use `python3.12` (ChromaDB native deps may not have 3.14 wheels yet).
-
-## Screenshot quickstart (steps 0–5)
-
-These commands are optimized for fast demos + clean screenshots and use the literal path `data/messages.txt`.
-
-### 0) Create a tiny demo corpus
-
-```bash
-mkdir -p data
-cat > data/messages.txt <<'EOF'
-hey are you free later?
-yeah, what’s up?
-thinking ramen tonight
-down. same place as last time?
-lol yes
-ok see you 7ish
-EOF
-```
-
-### 1) Browse corpus stats
-
-```bash
-jugemu browse --messages data/messages.txt --mode both --top 20
-```
-
-### 2) Ingest to ChromaDB (fast)
-
-```bash
-jugemu ingest \
-  --messages data/messages.txt \
-  --persist data/chroma \
-  --collection messages \
-  --fast-embedding-model \
-  --batch 32
-```
-
-### 3) Train a tiny checkpoint (fast)
-
-```bash
-jugemu train \
-  --messages data/messages.txt \
-  --out data/checkpoints \
-  --epochs 1 \
-  --steps-per-epoch 30 \
-  --batch-size 16 \
-  --seq-len 128 \
-  --log-every 10
-```
-
-### 4) Chat (retrieval + generation)
-
-```bash
-jugemu chat \
-  --messages data/messages.txt \
-  --persist data/chroma \
-  --collection messages \
-  --checkpoint data/checkpoints/latest.pt \
-  --k 4 \
-  --max-new 180
-```
-
-### 5) Optional: machine-readable chat JSON
-
-```bash
-jugemu chat \
-  --json \
-  --messages data/messages.txt \
-  --persist data/chroma \
-  --collection messages \
-  --checkpoint data/checkpoints/latest.pt
-```
-
-## 1) Put your messages somewhere
-
-Simplest format: a UTF-8 text file where each line is one message.
-
-Example: `data/messages.txt`
-
-## 2) Ingest to ChromaDB (vector DB)
-
-```bash
-cd /path/to/jugemu
-jugemu ingest \
-  --messages data/messages.txt \
-  --persist data/chroma \
-  --collection messages
-```
 
 Privacy notes:
 - jugemu runs **locally**. It does not call remote LLM APIs.
@@ -124,71 +26,84 @@ jugemu ingest \
   --redact-type phone
 ```
 
-## 3) Train the tiny model
+...
 
-```bash
-cd /path/to/jugemu
-jugemu train \
-  --messages data/messages.txt \
-  --out data/checkpoints \
-  --epochs 5 \
-  --batch-size 64 \
-  --seq-len 256
+## Stack
+
+* ...
+* ...
+* ...
+
+## Usage
+
+> [!Important]  
+> Please read the [legal disclaimer](#legal) before using `Jugemu`.
+
+The below instructions are for locally hosting `Jugemu`. Additionally see [here](#configuration) for flags to augment `Jugemu`'s operations.
+
+1. First run the below commands to setup `Jugemu`'s environment.
+
+```console
+$ git clone https://github.com/gongahkia/jugemu && cd jugemu
+$ python3.12 -m venv .venv && source .venv/bin/activate
+$ pip install -e '.[dev]'
 ```
 
-Optional (usually more coherent chat-style replies):
+2. Add your corpus to the relative path `./data/messages.txt` from the repository's root.
+3. Next run these commands to initiate the [ingestion](#architecture) and [training](#architecture) cycle.
 
-```bash
-jugemu train \
-  --messages data/messages.txt \
-  --out data/checkpoints \
-  --training-mode pairs
+```console
+$ jugemu browse --messages data/messages.txt --mode both --top 100 # browse corpus stats
+$ jugemu ingest --messages data/messages.txt --persist data chroma --collection messages --fast-embedding-model --batch 32 # ingest the corpus to chromadb
+$ jugemu train --messages data/messages.txt --out data/checkpoints --epochs 1 --steps-per-epoch 30 --batch-size 16 --seq-len 128 --log-every 10 # train a tiny checkpoint
 ```
 
-Privacy notes:
-- Training writes checkpoints under `--out` (default: `data/checkpoints`).
-- A small `run.json` (config + git hash) and `meta.json` are written alongside checkpoints.
-- If you want to scrub common PII-like strings before training, use `--redact`.
+4. Finally excecute the below to chat with `Jugemu`'s CLI chat context.
 
-## 4) Chat (retrieve similar messages + generate)
-
-```bash
-cd /path/to/jugemu
-jugemu chat \
-  --messages data/messages.txt \
-  --persist data/chroma \
-  --collection messages \
-  --checkpoint data/checkpoints/latest.pt
+```console
+$ jugemu chat --messages data/messages.txt --persist data/chroma --collection messages --checkpoint data/checkpoints/latest.pt --k 4 --max-new 180
 ```
 
-You can also use the Makefile wrappers:
+5. Optionally run the below to export `Jugemu`'s CLI chat to a machine-readable `.json` format.
 
-```bash
-make ingest
-make train
-make chat
+```console
+$ jugemu chat --json --messages data/messages.txt --persist data/chroma --collection messages --checkpoint data/checkpoints/latest.pt
 ```
 
-Notes:
-- This model is deliberately small; it will not be factual or safe in general.
-- It will mostly learn your *style* and short-range character patterns.
+## Screenshots
 
-## Configuration (config.toml)
+![](./asset/reference/0.png)
 
-Most commands accept a global `--config` option (defaults to `./config.toml` when present).
+![](./asset/reference/1.png)
 
-Supported keys:
+![](./asset/reference/2.png)
+
+![](./asset/reference/3.png)
+
+![](./asset/reference/4.png)
+
+![](./asset/reference/5.png)
+
+## Architecture
+
+> [!NOTE]  
+> `Jugemu` is deliberately small and is therefore likely to not be factual or safe as it learns from short-range character patterns.
+
+```mermaid
+
+```
+
+## Configuration
+
+Most `Jugemu` commands additionally accept a global `--config` flag *(that otherwise defaults to `./config.toml` as below)*.
 
 ```toml
+# ./config.toml
+
 [paths]
-# Default messages path used by commands when you didn't pass --messages.
-messages = "data/messages.txt"
-
-# Chroma persist directory used by commands when you didn't pass --persist.
-chroma_persist = "data/chroma"
-
-# Checkpoints directory used by train/chat/pipeline when you didn't pass --checkpoint/--out.
-checkpoints = "data/checkpoints"
+messages = "data/messages.txt" # default messages path used by commands when you didn't pass --messages.
+chroma_persist = "data/chroma" # chroma persist directory used by commands when you didn't pass --persist.
+checkpoints = "data/checkpoints" # checkpoints directory used by train/chat/pipeline when you didn't pass --checkpoint/--out.
 
 [chroma]
 collection = "messages"
@@ -197,7 +112,7 @@ collection = "messages"
 model = "sentence-transformers/all-MiniLM-L6-v2"
 
 [browse]
-mode = "both"       # chars|tokens|both
+mode = "both" # chars|tokens|both
 top = 50
 min_count = 1
 json = false
@@ -222,3 +137,11 @@ temperature = 0.9
 top_k = 60
 device = "auto" # auto/cpu/mps/cuda
 ```
+
+## Legal
+
+...
+
+## Reference
+
+...
