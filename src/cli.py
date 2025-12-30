@@ -29,7 +29,7 @@ app = typer.Typer(
 )
 
 
-def _version_callback(value: bool | None) -> None:
+def _version_callback(value: bool) -> None:
     if value:
         typer.echo(f"jugemu {__version__}")
         raise typer.Exit()
@@ -62,12 +62,11 @@ def _global_options(
         "--config",
         help="Optional config.toml path (defaults to ./config.toml when present)",
     ),
-    version: bool | None = typer.Option(
-        None,
+    version: bool = typer.Option(
+        False,
         "--version",
         callback=_version_callback,
         help="Print version and exit",
-        is_flag=True,
         expose_value=False,
         is_eager=True,
     ),
