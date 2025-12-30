@@ -4,9 +4,18 @@
 
 ## Stack
 
-* *DB*: [ChromaDB](), ...
-* ...
-* ...
+- **Language**: [Python 3.10–3.13](https://www.python.org/)
+- **CLI framework**: [Typer](https://typer.tiangolo.com/) (built on [Click](https://click.palletsprojects.com/))
+- **Terminal UI**: [Rich](https://rich.readthedocs.io/)
+- **Deep learning / training**: [PyTorch](https://pytorch.org/) (supports CPU, CUDA, and Apple Silicon via MPS when available)
+- **Embeddings + reranking**: [Sentence-Transformers](https://www.sbert.net/) (models are typically fetched from [Hugging Face Hub](https://huggingface.co/) on first use)
+- **Vector database**: [ChromaDB](https://www.trychroma.com/) / [Chroma docs](https://docs.trychroma.com/)
+- **Optional vector backend**: [DataStax Python Driver for Apache Cassandra](https://docs.datastax.com/en/developer/python-driver/latest/)
+- **Config + validation**: [Pydantic](https://docs.pydantic.dev/)
+- **Numerics / utilities**: [NumPy](https://numpy.org/), [tqdm](https://tqdm.github.io/)
+- **Testing**: [pytest](https://docs.pytest.org/)
+- **Packaging**: [pyproject.toml](https://packaging.python.org/en/latest/specifications/pyproject-toml/), [setuptools](https://setuptools.pypa.io/)
+- **Docs diagrams**: [Mermaid](https://mermaid.js.org/)
 
 ## Usage
 
@@ -28,7 +37,7 @@ $ pip install -e '.[dev]'
 
 ```console
 $ jugemu browse --messages data/messages.txt --mode both --top 100 # browse corpus stats
-$ jugemu ingest --messages data/messages.txt --persist data chroma --collection messages --fast-embedding-model --batch 32 # ingest the corpus to chromadb
+$ jugemu ingest --messages data/messages.txt --persist data/chroma --collection messages --fast-embedding-model --batch 32 # ingest the corpus to chromadb
 $ jugemu train --messages data/messages.txt --out data/checkpoints --epochs 1 --steps-per-epoch 30 --batch-size 16 --seq-len 128 --log-every 10 # train a tiny checkpoint
 ```
 
@@ -64,7 +73,96 @@ $ jugemu chat --json --messages data/messages.txt --persist data/chroma --collec
 > `Jugemu` is deliberately small and is therefore likely to not be factual or safe as it learns from short-range character patterns.
 
 ```mermaid
+flowchart TD
+  %% High-level CLI entrypoints
+  CLI[jugemu CLI (Typer)]
 
+  %% Inputs
+  EXPORT[Chat export file\nplain / whatsapp / telegram-json]
+  CORPUS[data/messages.txt\n(one message per line)]
+
+  %% Vector store
+  subgraph VEC[Vector store]
+    CHROMA[(ChromaDB\n(data/chroma))]
+    CASS[(Cassandra\n(optional backend))]
+  end
+
+  %% Model artifacts
+  subgraph MODEL[Model artifacts]
+    CKPT[(Checkpoints\n(data/checkpoints/*.pt))]
+    VOCAB[(Vocab / metadata\n(saved with checkpoints))]
+  end
+
+  %% Ingestion pipeline
+  subgraph INGEST[Ingestion]
+    PARSE[parse\n(normalize export → lines)]
+    CLEAN[clean + optional redact\n(optional collapse whitespace / emoji stripping)]
+    DEDUPE[dedupe\n(exact; optional fuzzy)]
+    CHUNK[chunking\n(message | window)]
+    EMBED[embed texts\n(Sentence-Transformers)]
+  end
+
+  %% Training
+  subgraph TRAIN[Training]
+    DATASET[build dataset\n(stream or pairs)]
+    TINY[TinyCharTransformer\n(char-level LM)]
+    OPT[train loop\n(PyTorch)]
+  end
+
+  %% Chat / generation
+  subgraph CHAT[Chat (retrieval + generation)]
+    Q[User prompt]
+    RETRIEVE[retrieve similar\n(k-NN over embeddings)]
+    RERANK[optional rerank\n(cross-encoder)]
+    PROMPT[build prompt template\n(few-shot / scaffold / minimal)]
+    GENERATE[generate reply\n(char-level sampling)]
+    OUT[stdout\n(Rich UI or --json NDJSON)]
+  end
+
+  %% Other utilities
+  subgraph UTILS[Other commands]
+    BROWSE[browse\n(chars/tokens stats)]
+    EXPORTR[export-retrieval\n(sample queries → json/jsonl)]
+    SCHEMA[schema\n(print schema/backends)]
+    REBUILD[rebuild-store\n(reset + re-ingest)]
+  end
+
+  %% Flows
+  CLI --> PARSE
+  EXPORT --> PARSE
+  PARSE --> CORPUS
+
+  CLI --> BROWSE
+  CORPUS --> BROWSE
+
+  CLI --> CLEAN
+  CORPUS --> CLEAN
+  CLEAN --> DEDUPE --> CHUNK --> EMBED
+  EMBED --> CHROMA
+  EMBED --> CASS
+
+  CLI --> DATASET
+  CORPUS --> DATASET --> TINY --> OPT --> CKPT
+  CKPT --> VOCAB
+
+  CLI --> RETRIEVE
+  Q --> RETRIEVE
+  RETRIEVE --> CHROMA
+  RETRIEVE --> CASS
+  RETRIEVE --> RERANK --> PROMPT
+  RETRIEVE --> PROMPT
+  CKPT --> GENERATE
+  VOCAB --> GENERATE
+  PROMPT --> GENERATE --> OUT
+
+  CLI --> EXPORTR
+  EXPORTR --> CHROMA
+  EXPORTR --> CASS
+
+  CLI --> SCHEMA
+  CLI --> REBUILD
+  REBUILD --> CHROMA
+  REBUILD --> CASS
 ```
 
 ## Configuration
@@ -114,7 +212,14 @@ device = "auto" # auto/cpu/mps/cuda
 
 ## Legal
 
-...
+This project is provided “as is”, without warranty of any kind.
+
+- **Privacy / data responsibility**: You are responsible for ensuring you have the right to process any message exports you ingest (consent, local laws, workplace policies, etc.).
+- **Local-first, but dependencies may download models**: jugemu does not call remote LLM APIs for inference, but embedding / reranking models are typically downloaded from third-party model hosts (commonly Hugging Face) on first use unless you pre-cache them.
+- **Storage**: Ingestion stores embeddings + metadata in a local vector database directory (e.g., `data/chroma`) and training writes local checkpoints (e.g., `data/checkpoints`). Treat these as sensitive if your corpus is sensitive.
+- **Safety / correctness**: Outputs can be incorrect, misleading, offensive, or reflect private content patterns from the training data. Do not rely on outputs for medical, legal, financial, or safety-critical decisions.
+- **Security**: This is a local tool and not hardened as a multi-user service. Don’t expose its outputs or databases publicly without reviewing what they contain.
+- **Licensing**: No `LICENSE` file is currently present in this repository; assume standard copyright applies unless you add an explicit license.
 
 ## Other notes
 
