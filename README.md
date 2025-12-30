@@ -1,3 +1,5 @@
+[![](https://img.shields.io/badge/jugemu_1.0.0-passing-green)](https://github.com/gongahkia/jugemu/releases/tag/1.0.0)
+
 # `Jugemu`
 
 [Tiny](https://www.merriam-webster.com/dictionary/small), [dumb](https://dictionary.cambridge.org/dictionary/english/dumb), [character-level](https://medium.com/data-science/character-level-language-model-1439f5dd87fe) language model trained locally on your message [corpus](https://dictionary.cambridge.org/dictionary/english/corpus).
