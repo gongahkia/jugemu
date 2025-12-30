@@ -1,36 +1,10 @@
 # `Jugemu`
 
-A tiny message LLM.
-
-Tiny, dumb, character-level language model trained only on your message corpus 
-
-...
-
-This is an intentionally **tiny and stupid** character-level language model trained on *your* message corpus, plus a **ChromaDB** vector store for retrieval.
-
-Privacy notes:
-- jugemu runs **locally**. It does not call remote LLM APIs.
-- Ingestion writes a local ChromaDB database under `--persist` (default: `data/chroma`).
-- Embeddings are computed locally via `sentence-transformers` and stored in that ChromaDB directory.
-- If you want to scrub common PII-like strings before they ever hit the vector DB, use `--redact`.
-
-Example (redact emails + phone numbers before embedding/storing):
-
-```bash
-jugemu ingest \
-  --messages data/messages.txt \
-  --persist data/chroma \
-  --collection messages \
-  --redact \
-  --redact-type email \
-  --redact-type phone
-```
-
-...
+[Tiny](https://www.merriam-webster.com/dictionary/small), [dumb](https://dictionary.cambridge.org/dictionary/english/dumb), [character-level](https://medium.com/data-science/character-level-language-model-1439f5dd87fe) language model trained locally on your message [corpus](https://dictionary.cambridge.org/dictionary/english/corpus).
 
 ## Stack
 
-* ...
+* *DB*: [ChromaDB](), ...
 * ...
 * ...
 
@@ -142,6 +116,18 @@ device = "auto" # auto/cpu/mps/cuda
 
 ...
 
+## Other notes
+
+`Jugemu` runs the entire [ingestion, training and generation](#architecture) workflow locally and does not call any remote LLM APIs.
+
+* [Ingestion](#architecture) writes a local ChromaDB database under `--persist` (default: `data/chroma`)
+* Embeddings are [computed](#architecture) locally via `sentence-transformers` and stored in that ChromaDB directory
+* [Scrub](#architecture) common PII-like strings before they ever hit the vector DB with `--redact`
+
 ## Reference
 
-...
+The name `Jugemu` is in reference to the [rakugo story](https://en.wikipedia.org/wiki/Rakugo) of the [same name](https://en.wikipedia.org/wiki/Jugemu), which I was first exposed to when reading the ongoing manga series [*Akane-banashi*](https://en.wikipedia.org/wiki/Akane-banashi).
+
+<div align="center">
+  <img src="./asset/logo/akane.jpg" width="55%">
+</div>
