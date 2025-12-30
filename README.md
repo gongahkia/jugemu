@@ -1,4 +1,4 @@
-# Jugemu
+# `Jugemu`
 
 A tiny message LLM.
 
