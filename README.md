@@ -19,6 +19,77 @@ pip install -e '.[dev]'
 
 If your default `python3` is 3.14+, use `python3.12` (ChromaDB native deps may not have 3.14 wheels yet).
 
+## Screenshot quickstart (steps 0–5)
+
+These commands are optimized for fast demos + clean screenshots and use the literal path `data/messages.txt`.
+
+### 0) Create a tiny demo corpus
+
+```bash
+mkdir -p data
+cat > data/messages.txt <<'EOF'
+hey are you free later?
+yeah, what’s up?
+thinking ramen tonight
+down. same place as last time?
+lol yes
+ok see you 7ish
+EOF
+```
+
+### 1) Browse corpus stats
+
+```bash
+jugemu browse --messages data/messages.txt --mode both --top 20
+```
+
+### 2) Ingest to ChromaDB (fast)
+
+```bash
+jugemu ingest \
+  --messages data/messages.txt \
+  --persist data/chroma \
+  --collection messages \
+  --fast-embedding-model \
+  --batch 32
+```
+
+### 3) Train a tiny checkpoint (fast)
+
+```bash
+jugemu train \
+  --messages data/messages.txt \
+  --out data/checkpoints \
+  --epochs 1 \
+  --steps-per-epoch 30 \
+  --batch-size 16 \
+  --seq-len 128 \
+  --log-every 10
+```
+
+### 4) Chat (retrieval + generation)
+
+```bash
+jugemu chat \
+  --messages data/messages.txt \
+  --persist data/chroma \
+  --collection messages \
+  --checkpoint data/checkpoints/latest.pt \
+  --k 4 \
+  --max-new 180
+```
+
+### 5) Optional: machine-readable chat JSON
+
+```bash
+jugemu chat \
+  --json \
+  --messages data/messages.txt \
+  --persist data/chroma \
+  --collection messages \
+  --checkpoint data/checkpoints/latest.pt
+```
+
 ## 1) Put your messages somewhere
 
 Simplest format: a UTF-8 text file where each line is one message.
@@ -78,13 +149,13 @@ Privacy notes:
 - Training writes checkpoints under `--out` (default: `data/checkpoints`).
 - A small `run.json` (config + git hash) and `meta.json` are written alongside checkpoints.
 - If you want to scrub common PII-like strings before training, use `--redact`.
-```
 
 ## 4) Chat (retrieve similar messages + generate)
 
 ```bash
 cd /path/to/jugemu
 jugemu chat \
+  --messages data/messages.txt \
   --persist data/chroma \
   --collection messages \
   --checkpoint data/checkpoints/latest.pt
