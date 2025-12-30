@@ -4,18 +4,11 @@
 
 ## Stack
 
-- **Language**: [Python 3.10–3.13](https://www.python.org/)
-- **CLI framework**: [Typer](https://typer.tiangolo.com/) (built on [Click](https://click.palletsprojects.com/))
-- **Terminal UI**: [Rich](https://rich.readthedocs.io/)
-- **Deep learning / training**: [PyTorch](https://pytorch.org/) (supports CPU, CUDA, and Apple Silicon via MPS when available)
-- **Embeddings + reranking**: [Sentence-Transformers](https://www.sbert.net/) (models are typically fetched from [Hugging Face Hub](https://huggingface.co/) on first use)
-- **Vector database**: [ChromaDB](https://www.trychroma.com/) / [Chroma docs](https://docs.trychroma.com/)
-- **Optional vector backend**: [DataStax Python Driver for Apache Cassandra](https://docs.datastax.com/en/developer/python-driver/latest/)
-- **Config + validation**: [Pydantic](https://docs.pydantic.dev/)
-- **Numerics / utilities**: [NumPy](https://numpy.org/), [tqdm](https://tqdm.github.io/)
-- **Testing**: [pytest](https://docs.pytest.org/)
-- **Packaging**: [pyproject.toml](https://packaging.python.org/en/latest/specifications/pyproject-toml/), [setuptools](https://setuptools.pypa.io/)
-- **Docs diagrams**: [Mermaid](https://mermaid.js.org/)
+* *Backend*: [Python](https://www.python.org/), [Pydantic](https://docs.pydantic.dev/), [NumPy](https://numpy.org/), [tqdm](https://tqdm.github.io/)
+* *CLI framework*: [Typer](https://typer.tiangolo.com/), [Click](https://click.palletsprojects.com/), [Rich](https://rich.readthedocs.io/)
+* *Training*: [PyTorch](https://pytorch.org/), [Sentence-Transformers](https://www.sbert.net/) 
+* *Vector DB*: [ChromaDB](https://www.trychroma.com/), [DataStax Python Driver for Apache Cassandra](https://docs.datastax.com/en/developer/python-driver/latest/)
+* *Test*: [pytest](https://docs.pytest.org/)
 
 ## Usage
 
