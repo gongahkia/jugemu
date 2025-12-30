@@ -1,39 +1,20 @@
-[![](https://img.shields.io/badge/jugemu_1.0.0-passing-green)](https://github.com/gongahkia/jugemu/releases/tag/1.0.0)
-
-# `Jugemu`
+# Jugemu
 
 A tiny message LLM.
 
 This is an intentionally **tiny and stupid** character-level language model trained on *your* message corpus, plus a **ChromaDB** vector store for retrieval.
-
-## Stack
-
-...
-
-## Usage
-
-...
-
-## Screenshots
-
-...
-
-## Architecture
-
-```mermaid
-
-```
-
-## Reference 
-
-...
 
 ## Setup
 
 ```bash
 python3.12 -m venv .venv
 source .venv/bin/activate
-pip install -r requirements.txt
+
+# Recommended (installs the `jugemu` CLI entrypoint)
+pip install -e '.[dev]'
+
+# Alternative (if you prefer requirements.txt)
+# pip install -r requirements.txt
 ```
 
 If your default `python3` is 3.14+, use `python3.12` (ChromaDB native deps may not have 3.14 wheels yet).
@@ -48,7 +29,7 @@ Example: `data/messages.txt`
 
 ```bash
 cd /path/to/jugemu
-python -m src.cli ingest \
+jugemu ingest \
   --messages data/messages.txt \
   --persist data/chroma \
   --collection messages
@@ -63,7 +44,7 @@ Privacy notes:
 Example (redact emails + phone numbers before embedding/storing):
 
 ```bash
-python -m src.cli ingest \
+jugemu ingest \
   --messages data/messages.txt \
   --persist data/chroma \
   --collection messages \
@@ -76,17 +57,18 @@ python -m src.cli ingest \
 
 ```bash
 cd /path/to/jugemu
-python -m src.cli train \
+jugemu train \
   --messages data/messages.txt \
   --out data/checkpoints \
   --epochs 5 \
   --batch-size 64 \
   --seq-len 256
+```
 
 Optional (usually more coherent chat-style replies):
 
 ```bash
-python -m src.cli train \
+jugemu train \
   --messages data/messages.txt \
   --out data/checkpoints \
   --training-mode pairs
@@ -102,7 +84,7 @@ Privacy notes:
 
 ```bash
 cd /path/to/jugemu
-python -m src.cli chat \
+jugemu chat \
   --persist data/chroma \
   --collection messages \
   --checkpoint data/checkpoints/latest.pt
