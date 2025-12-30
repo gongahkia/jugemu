@@ -68,56 +68,56 @@ $ jugemu chat --json --messages data/messages.txt --persist data/chroma --collec
 ```mermaid
 flowchart TD
   %% High-level CLI entrypoints
-  CLI[jugemu CLI (Typer)]
+  CLI["jugemu CLI (Typer)"]
 
   %% Inputs
   EXPORT[Chat export file\nplain / whatsapp / telegram-json]
-  CORPUS[data/messages.txt\n(one message per line)]
+  CORPUS["data/messages.txt\n(one message per line)"]
 
   %% Vector store
   subgraph VEC[Vector store]
-    CHROMA[(ChromaDB\n(data/chroma))]
-    CASS[(Cassandra\n(optional backend))]
+    CHROMA["(ChromaDB\n(data/chroma))"]
+    CASS["(Cassandra\n(optional backend))"]
   end
 
   %% Model artifacts
   subgraph MODEL[Model artifacts]
-    CKPT[(Checkpoints\n(data/checkpoints/*.pt))]
-    VOCAB[(Vocab / metadata\n(saved with checkpoints))]
+    CKPT["(Checkpoints\n(data/checkpoints/*.pt))"]
+    VOCAB["(Vocab / metadata\n(saved with checkpoints))"]
   end
 
   %% Ingestion pipeline
   subgraph INGEST[Ingestion]
-    PARSE[parse\n(normalize export → lines)]
-    CLEAN[clean + optional redact\n(optional collapse whitespace / emoji stripping)]
-    DEDUPE[dedupe\n(exact; optional fuzzy)]
-    CHUNK[chunking\n(message | window)]
-    EMBED[embed texts\n(Sentence-Transformers)]
+    PARSE["parse\n(normalize export → lines)"]
+    CLEAN["clean + optional redact\n(optional collapse whitespace / emoji stripping)"]
+    DEDUPE["dedupe\n(exact; optional fuzzy)"]
+    CHUNK["chunking\n(message | window)"]
+    EMBED["embed texts\n(Sentence-Transformers)"]
   end
 
   %% Training
   subgraph TRAIN[Training]
-    DATASET[build dataset\n(stream or pairs)]
-    TINY[TinyCharTransformer\n(char-level LM)]
-    OPT[train loop\n(PyTorch)]
+    DATASET["build dataset\n(stream or pairs)"]
+    TINY["TinyCharTransformer\n(char-level LM)"]
+    OPT["train loop\n(PyTorch)"]
   end
 
   %% Chat / generation
-  subgraph CHAT[Chat (retrieval + generation)]
+  subgraph CHAT["Chat (retrieval + generation)"]
     Q[User prompt]
-    RETRIEVE[retrieve similar\n(k-NN over embeddings)]
-    RERANK[optional rerank\n(cross-encoder)]
-    PROMPT[build prompt template\n(few-shot / scaffold / minimal)]
-    GENERATE[generate reply\n(char-level sampling)]
-    OUT[stdout\n(Rich UI or --json NDJSON)]
+    RETRIEVE["retrieve similar\n(k-NN over embeddings)"]
+    RERANK["optional rerank\n(cross-encoder)"]
+    PROMPT["build prompt template\n(few-shot / scaffold / minimal)"]
+    GENERATE["generate reply\n(char-level sampling)"]
+    OUT["stdout\n(Rich UI or --json NDJSON)"]
   end
 
   %% Other utilities
   subgraph UTILS[Other commands]
-    BROWSE[browse\n(chars/tokens stats)]
-    EXPORTR[export-retrieval\n(sample queries → json/jsonl)]
-    SCHEMA[schema\n(print schema/backends)]
-    REBUILD[rebuild-store\n(reset + re-ingest)]
+    BROWSE["browse\n(chars/tokens stats)"]
+    EXPORTR["export-retrieval\n(sample queries → json/jsonl)"]
+    SCHEMA["schema\n(print schema/backends)"]
+    REBUILD["rebuild-store\n(reset + re-ingest)"]
   end
 
   %% Flows
