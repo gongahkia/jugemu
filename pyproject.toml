@@ -22,6 +22,7 @@ dependencies = [
 ]
 
 [project.scripts]
+jugemu = "src.cli:main"
 jugemu-ingest = "src.entrypoints:ingest_main"
 jugemu-train = "src.entrypoints:train_main"
 jugemu-chat = "src.entrypoints:chat_main"
